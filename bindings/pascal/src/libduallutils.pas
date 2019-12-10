@@ -40,7 +40,7 @@ const
     'so'
  {$ENDIF};
 {$ENDIF}
-  LIB_NAME = Concat(SharedPrefix, 'duallutils.', SharedSuffix);
+  DU_LIB_NAME = Concat(SharedPrefix, 'duallutils.', SharedSuffix);
 
 {$IFDEF FPC}
  {$IFDEF VER3_0}
@@ -136,7 +136,7 @@ procedure Check;
 begin
   if GLibHandle = NilHandle then
     raise EduLibNotLoaded.CreateFmt(SduLibNotLoaded,
-      [IfThen(GLibLastName = '', LIB_NAME, GLibLastName)]);
+      [IfThen(GLibLastName = '', DU_LIB_NAME, GLibLastName)]);
 end;
 
 initialization
