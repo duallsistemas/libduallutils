@@ -99,7 +99,7 @@ begin
     begin
 {$IFDEF MSWINDOWS}
       if GetLastError = ERROR_BAD_EXE_FORMAT then
-        raise ELibNotLoaded.CreateFmt(SLibInvalid, [ALibraryName]);
+        raise EduLibNotLoaded.CreateFmt(SduLibInvalid, [ALibraryName]);
 {$ENDIF}
       raise EduLibNotLoaded.CreateFmt(SduLibNotLoaded, [ALibraryName])
     end;
