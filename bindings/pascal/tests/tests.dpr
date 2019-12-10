@@ -32,8 +32,8 @@ begin
   TestVersion;
   TestMD5;
   TestSHA1;
-{$IFDEF MSWINDOWS}
   Writeln('All tests passed!');
+{$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');
   Readln;
 {$ENDIF}

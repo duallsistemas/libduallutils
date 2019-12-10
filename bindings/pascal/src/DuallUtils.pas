@@ -81,7 +81,8 @@ var
 begin
   libduallutils.Check;
   A[0] := 0;
-  libduallutils.du_md5(M.ToCString(S), @A[0], SizeOf(A));
+  if libduallutils.du_md5(M.ToCString(S), @A[0], SizeOf(A)) = -1 then
+    RaiseInvalidFunctionArgument;
   Result := TMarshal.ToString(@A[0]);
 end;
 
@@ -92,7 +93,8 @@ var
 begin
   libduallutils.Check;
   A[0] := 0;
-  libduallutils.du_sha1(M.ToCString(S), @A[0], SizeOf(A));
+  if libduallutils.du_sha1(M.ToCString(S), @A[0], SizeOf(A)) = -1 then
+    RaiseInvalidFunctionArgument;
   Result := TMarshal.ToString(@A[0]);
 end;
 
