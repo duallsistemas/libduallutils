@@ -2,6 +2,8 @@ use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
+use std::io::ErrorKind::NotFound;
+use std::process::Command;
 
 mod utils;
 
@@ -66,6 +68,82 @@ pub unsafe extern "C" fn du_sha1(str: *const c_char, sha1: *mut c_char, size: si
         buf_size = buf.len()
     }
     copy!(buf.as_ptr(), sha1, buf_size);
+    0
+}
+
+/// Executes the command as a child process.
+///
+/// # Arguments
+///
+/// * `[in] program` - Program path as C-like string.
+/// * `[in] workdir` - Working directory as C-like string.
+/// * `[in] args` - Arguments to pass to the program as array of C-like string.
+/// * `[in] envs` - Environment variables to pass to the program as array of C-like string.
+/// * `[in] waiting` - Waiting for the program to exit completely.
+/// * `[in,out] exitcode` - Exit code of the process.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - Program not found.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_spawn(
+    program: *const c_char,
+    workdir: *const c_char,
+    args: *const *const c_char,
+    envs: *const *const c_char,
+    waiting: bool,
+    exitcode: *mut c_int,
+) -> c_int {
+    if program.is_null() {
+        return -1;
+    }
+    let mut cmd = Command::new(cs!(program).unwrap());
+    if !workdir.is_null() {
+        cmd.current_dir(cs!(workdir).unwrap());
+    }
+    if !args.is_null() {
+        for i in 0.. {
+            let arg: *const c_char = *(args.offset(i));
+            if arg != std::ptr::null() {
+                cmd.arg(cs!(arg).unwrap());
+            } else {
+                break;
+            }
+        }
+    }
+    if !envs.is_null() {
+        for i in 0.. {
+            let env: *const c_char = *(envs.offset(i));
+            if env != std::ptr::null() {
+                let pair: Vec<&str> = cs!(env).unwrap().splitn(2, "=").collect();
+                if pair.len() == 2 {
+                    cmd.env(pair.first().unwrap(), pair.last().unwrap());
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    match cmd.spawn() {
+        Ok(mut child) => {
+            if waiting {
+                match child.try_wait() {
+                    Ok(Some(status)) => *exitcode = status.code().unwrap(),
+                    Ok(None) => *exitcode = child.wait().unwrap().code().unwrap(),
+                    Err(_) => return -3,
+                }
+            }
+        }
+        Err(e) => {
+            if e.kind() == NotFound {
+                return -2;
+            }
+            return -3;
+        }
+    }
     0
 }
 
