@@ -43,7 +43,9 @@ type
     class function SHA1(const S: string): string; static;
     class function Spawn(const AProgram: TFileName; const AWorkDir: string;
       const AArgs, AEnvs: array of string;
-      AWaiting: Boolean; out AExitCode: Integer): Boolean; static;
+      AWaiting: Boolean; out AExitCode: Integer): Boolean; overload; static;
+    class function Spawn(const AProgram: TFileName; const AArgs: array of string;
+      AWaiting: Boolean = False): Boolean; overload; static;
   end;
 
 implementation
@@ -135,6 +137,14 @@ begin
     -3: RaiseUnknownLibraryError;
   end;
   Result := True;
+end;
+
+class function dUtils.Spawn(const AProgram: TFileName;
+  const AArgs: array of string; AWaiting: Boolean): Boolean;
+var
+  O: Integer;
+begin
+  Result := dUtils.Spawn(AProgram, '', AArgs, [], AWaiting, O);
 end;
 
 initialization
