@@ -3,7 +3,7 @@ use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
 use std::io::ErrorKind::NotFound;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 mod utils;
 
@@ -103,6 +103,9 @@ pub unsafe extern "C" fn du_spawn(
     let mut cmd = Command::new(cs!(program).unwrap());
     if !workdir.is_null() {
         cmd.current_dir(cs!(workdir).unwrap());
+    }
+    if cfg!(test) {
+        cmd.stdout(Stdio::null());
     }
     if !args.is_null() {
         for i in 0.. {
@@ -224,6 +227,47 @@ mod tests {
                 cs!(hash.as_ptr()).unwrap(),
                 "6367c48dd193d56ea7b0baad25b19455e529f5ee"
             );
+        }
+    }
+
+    #[test]
+    fn spawn() {
+        unsafe {
+            let mut code: c_int = 0;
+            assert_eq!(
+                du_spawn(
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    true,
+                    &mut code
+                ),
+                -1
+            );
+            assert_eq!(
+                du_spawn(
+                    sc!("blah blah").unwrap().as_ptr(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    true,
+                    &mut code
+                ),
+                -2
+            );
+            assert_eq!(
+                du_spawn(
+                    sc!("echo").unwrap().as_ptr(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    true,
+                    &mut code
+                ),
+                0
+            );
+            assert_eq!(code, 0);
         }
     }
 }
