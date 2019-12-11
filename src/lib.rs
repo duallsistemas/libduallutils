@@ -17,21 +17,21 @@ pub unsafe extern "C" fn du_version() -> *const c_char {
 ///
 /// # Arguments
 ///
-/// * `[in] str` - Given C-like string.
+/// * `[in] s` - Given C-like string.
 /// * `[in,out] md5` - Generated MD5.
-/// * `[in] size` - Size of the `str` string.
+/// * `[in] size` - Size of the `s` string.
 ///
 /// # Returns
 ///
 /// * `0` - Success.
 /// * `-1` - Invalid argument.
 #[no_mangle]
-pub unsafe extern "C" fn du_md5(str: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
-    if str.is_null() || md5.is_null() || size <= 0 {
+pub unsafe extern "C" fn du_md5(s: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
+    if s.is_null() || md5.is_null() || size <= 0 {
         return -1;
     }
     let mut hasher = Md5::new();
-    hasher.input_str(cs!(str).unwrap());
+    hasher.input_str(cs!(s).unwrap());
     let hash = sc!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
@@ -46,21 +46,21 @@ pub unsafe extern "C" fn du_md5(str: *const c_char, md5: *mut c_char, size: size
 ///
 /// # Arguments
 ///
-/// * `[in] str` - Given C-like string.
+/// * `[in] s` - Given C-like string.
 /// * `[in,out] sha1` - Generated SHA-1.
-/// * `[in] size` - Size of the `str` string.
+/// * `[in] size` - Size of the `s` string.
 ///
 /// # Returns
 ///
 /// * `0` - Success.
 /// * `-1` - Invalid argument.
 #[no_mangle]
-pub unsafe extern "C" fn du_sha1(str: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
-    if str.is_null() || sha1.is_null() || size <= 0 {
+pub unsafe extern "C" fn du_sha1(s: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
+    if s.is_null() || sha1.is_null() || size <= 0 {
         return -1;
     }
     let mut hasher = Sha1::new();
-    hasher.input_str(cs!(str).unwrap());
+    hasher.input_str(cs!(s).unwrap());
     let hash = sc!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
