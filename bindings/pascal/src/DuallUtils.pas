@@ -41,6 +41,9 @@ type
     class function Version: string; static;
     class function MD5(const S: string): string; static;
     class function SHA1(const S: string): string; static;
+    class function Spawn(const AProgram: TFileName; const AWorkDir: string;
+      const AArgs, AEnvs: array of string;
+      AWaiting: Boolean; out AExitCode: Integer): Boolean; static;
   end;
 
 implementation
@@ -96,6 +99,42 @@ begin
   if libduallutils.du_sha1(M.ToCString(S), @A[0], SizeOf(A)) = -1 then
     RaiseInvalidFunctionArgument;
   Result := TMarshal.ToString(@A[0]);
+end;
+
+class function TdUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
+  const AArgs, AEnvs: array of string; AWaiting: Boolean;
+  out AExitCode: Integer): Boolean;
+var
+  M: TMarshaller;
+  A, E: array of Pcchar;
+  R: cint;
+  I: Byte;
+begin
+  libduallutils.Check;
+  I := Length(AArgs);
+  if I > 0 then
+  begin
+    SetLength(A, Succ(I));
+    for I := Low(AArgs) to High(AArgs) do
+      A[I] := M.ToCString(AArgs[I]);
+    A[Length(AArgs)] := nil;
+  end;
+  I := Length(AEnvs);
+  if I > 0 then
+  begin
+    SetLength(E, Succ(I));
+    for I := Low(AEnvs) to High(AEnvs) do
+      E[I] := M.ToCString(AEnvs[I]);
+    E[Length(AEnvs)] := nil;
+  end;
+  R := libduallutils.du_spawn(M.ToCString(AProgram),
+    M.ToCNullableString(AWorkDir), @A[0], @E[0], AWaiting, @AExitCode);
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownLibraryError;
+  end;
+  Result := True;
 end;
 
 initialization

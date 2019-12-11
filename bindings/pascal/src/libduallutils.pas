@@ -6,6 +6,7 @@ unit libduallutils;
  {$IFDEF VER3_0}
   {$PUSH}{$MACRO ON}
   {$DEFINE MarshaledAString := PAnsiChar}
+  {$DEFINE PMarshaledAString := PPAnsiChar}
   {$DEFINE EInvalidOpException := Exception}
   {$IFDEF VER3_0_0}
    {$DEFINE EFileNotFoundException := Exception}
@@ -64,8 +65,11 @@ resourcestring
 type
   Pcvoid = Pointer;
   Pcchar = MarshaledAString;
+  PPcchar = PMarshaledAString;
   cchar = Byte;
-  cint = Int32;
+  cbool = Boolean;
+  cint = Integer;
+  Pcint= PInteger;
   csize_t = NativeUInt;
 
   EduLibNotLoaded = class(EFileNotFoundException);
@@ -74,6 +78,9 @@ var
   du_version: function: Pcchar; cdecl;
   du_md5: function(const str: Pcchar; md5: Pcchar; size: csize_t): cint; cdecl;
   du_sha1: function(const str: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
+  du_spawn: function(const &program: Pcchar; const workdir: Pcchar;
+    const args: PPcchar; const envs: PPcchar; waiting: cbool;
+    output: Pcint): cint; cdecl;
 
 procedure Load(const ALibraryName: TFileName);
 
@@ -108,6 +115,7 @@ begin
     du_version := GetProcAddress(GLibHandle, 'du_version');
     du_md5 := GetProcAddress(GLibHandle, 'du_md5');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
+    du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
   finally
     GCS.Release;
   end;
@@ -127,6 +135,7 @@ begin
     du_version := nil;
     du_md5 := nil;
     du_sha1 := nil;
+    du_spawn := nil;
   finally
     GCS.Release;
   end;
