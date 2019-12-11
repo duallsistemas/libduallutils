@@ -2,8 +2,10 @@ use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
+use std::ffi::CString;
 use std::io::ErrorKind::NotFound;
 use std::process::{Command, Stdio};
+use std::ptr;
 
 mod utils;
 
@@ -11,6 +13,18 @@ mod utils;
 #[no_mangle]
 pub unsafe extern "C" fn du_version() -> *const c_char {
     concat!(env!("CARGO_PKG_VERSION"), '\0').as_ptr() as *const c_char
+}
+
+/// Frees the C-lik string `s` from the memory.
+///
+/// # Arguments
+///
+/// * `[in] s` - C-like string to be freed.
+#[no_mangle]
+pub unsafe extern "C" fn du_dispose(s: *mut c_char) {
+    if !s.is_null() {
+        CString::from_raw(s);
+    }
 }
 
 /// Generates a MD5 from a given string.
@@ -110,7 +124,7 @@ pub unsafe extern "C" fn du_spawn(
     if !args.is_null() {
         for i in 0.. {
             let arg: *const c_char = *(args.offset(i));
-            if arg != std::ptr::null() {
+            if arg != ptr::null() {
                 cmd.arg(cs!(arg).unwrap());
             } else {
                 break;
@@ -120,7 +134,7 @@ pub unsafe extern "C" fn du_spawn(
     if !envs.is_null() {
         for i in 0.. {
             let env: *const c_char = *(envs.offset(i));
-            if env != std::ptr::null() {
+            if env != ptr::null() {
                 let pair: Vec<&str> = cs!(env).unwrap().splitn(2, "=").collect();
                 if pair.len() == 2 {
                     cmd.env(pair.first().unwrap(), pair.last().unwrap());
@@ -150,6 +164,87 @@ pub unsafe extern "C" fn du_spawn(
     0
 }
 
+/// Executes the command as a child process waiting for it to finish and collecting all of its output.
+///
+/// # Arguments
+///
+/// * `[in] program` - Program path as C-like string.
+/// * `[in] workdir` - Working directory as C-like string.
+/// * `[in] args` - Arguments to pass to the program as array of C-like string.
+/// * `[in] envs` - Environment variables to pass to the program as array of C-like string.
+/// * `[in,out] output` - C-like string containing the `stdout` content if it exists.
+/// * `[in,out] error` - C-like string containing the `stderr` content if it exists.
+/// * `[in,out] exitcode` - Exit code of the process.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - Program not found.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_execute(
+    program: *const c_char,
+    workdir: *const c_char,
+    args: *const *const c_char,
+    envs: *const *const c_char,
+    output: *mut *mut c_char,
+    error: *mut *mut c_char,
+    exitcode: *mut c_int,
+) -> c_int {
+    if program.is_null() {
+        return -1;
+    }
+    let mut cmd = Command::new(cs!(program).unwrap());
+    if !workdir.is_null() {
+        cmd.current_dir(cs!(workdir).unwrap());
+    }
+    if cfg!(test) {
+        cmd.stdout(Stdio::null());
+    }
+    if !args.is_null() {
+        for i in 0.. {
+            let arg: *const c_char = *(args.offset(i));
+            if arg != ptr::null() {
+                cmd.arg(cs!(arg).unwrap());
+            } else {
+                break;
+            }
+        }
+    }
+    if !envs.is_null() {
+        for i in 0.. {
+            let env: *const c_char = *(envs.offset(i));
+            if env != ptr::null() {
+                let pair: Vec<&str> = cs!(env).unwrap().splitn(2, "=").collect();
+                if pair.len() == 2 {
+                    cmd.env(pair.first().unwrap(), pair.last().unwrap());
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    match cmd.output() {
+        Ok(child) => {
+            *output = sc!(String::from_utf8(child.stdout).unwrap())
+                .unwrap()
+                .into_raw();
+            *error = sc!(String::from_utf8(child.stderr).unwrap())
+                .unwrap()
+                .into_raw();
+            *exitcode = child.status.code().unwrap();
+        }
+        Err(e) => {
+            if e.kind() == NotFound {
+                return -2;
+            }
+            return -3;
+        }
+    }
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,12 +259,9 @@ mod tests {
     fn md5() {
         unsafe {
             let hash: [c_char; 33] = [0; 33];
+            assert_eq!(du_md5(ptr::null(), hash.as_ptr() as *mut c_char, 33), -1);
             assert_eq!(
-                du_md5(std::ptr::null(), hash.as_ptr() as *mut c_char, 33),
-                -1
-            );
-            assert_eq!(
-                du_md5(sc!("abc123").unwrap().as_ptr(), std::ptr::null_mut(), 33),
+                du_md5(sc!("abc123").unwrap().as_ptr(), ptr::null_mut(), 33),
                 -1
             );
             assert_eq!(
@@ -199,12 +291,9 @@ mod tests {
     fn sha1() {
         unsafe {
             let hash: [c_char; 41] = [0; 41];
+            assert_eq!(du_sha1(ptr::null(), hash.as_ptr() as *mut c_char, 41), -1);
             assert_eq!(
-                du_sha1(std::ptr::null(), hash.as_ptr() as *mut c_char, 41),
-                -1
-            );
-            assert_eq!(
-                du_sha1(sc!("abc123").unwrap().as_ptr(), std::ptr::null_mut(), 41),
+                du_sha1(sc!("abc123").unwrap().as_ptr(), ptr::null_mut(), 41),
                 -1
             );
             assert_eq!(
@@ -236,10 +325,10 @@ mod tests {
             let mut code: c_int = 0;
             assert_eq!(
                 du_spawn(
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
                     true,
                     &mut code
                 ),
@@ -248,9 +337,9 @@ mod tests {
             assert_eq!(
                 du_spawn(
                     sc!("blah blah").unwrap().as_ptr(),
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
                     true,
                     &mut code
                 ),
@@ -259,9 +348,9 @@ mod tests {
             assert_eq!(
                 du_spawn(
                     sc!("echo").unwrap().as_ptr(),
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
                     true,
                     &mut code
                 ),
