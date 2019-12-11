@@ -27,11 +27,21 @@ begin
   Assert(dUtils.SHA1('abc123') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
 end;
 
+procedure TestSpawn;
+var
+  O: Integer;
+begin
+  Assert(not dUtils.Spawn('blah blah', []));
+  Assert(dUtils.Spawn('echo', '', [], [], True, O));
+  Assert(O = 0);
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
   TestMD5;
   TestSHA1;
+  TestSpawn;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');
