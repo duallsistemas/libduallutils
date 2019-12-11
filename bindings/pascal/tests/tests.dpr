@@ -14,21 +14,21 @@ uses
 
 procedure TestVersion;
 begin
-  Assert(Length(TdUtils.Version) >= 5);
+  Assert(Length(dUtils.Version) >= 5);
 end;
 
 procedure TestMD5;
 begin
-  Assert(TdUtils.MD5('abc123') = 'e99a18c428cb38d5f260853678922e03');
+  Assert(dUtils.MD5('abc123') = 'e99a18c428cb38d5f260853678922e03');
 end;
 
 procedure TestSHA1;
 begin
-  Assert(TdUtils.SHA1('abc123') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
+  Assert(dUtils.SHA1('abc123') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
 end;
 
 begin
-  TdUtils.Load(Concat('../../target/release/', TdUtils.LIB_NAME));
+  dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
   TestMD5;
   TestSHA1;

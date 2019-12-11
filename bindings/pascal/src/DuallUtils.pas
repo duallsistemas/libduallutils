@@ -30,9 +30,9 @@ type
 
   EdUtils = class(EInvalidOpException);
 
-  { TdUtils }
+  { dUtils }
 
-  TdUtils = packed record
+  dUtils = packed record
   public const
     LIB_NAME = libduallutils.DU_LIB_NAME;
   public
@@ -58,26 +58,26 @@ begin
   raise EdUtils.Create(SUnknownLibraryError);
 end;
 
-{ TdUtils }
+{ dUtils }
 
-class procedure TdUtils.Load(const ALibraryName: TFileName);
+class procedure dUtils.Load(const ALibraryName: TFileName);
 begin
   Unload;
   libduallutils.Load(ALibraryName);
 end;
 
-class procedure TdUtils.Unload;
+class procedure dUtils.Unload;
 begin
   libduallutils.Unload;
 end;
 
-class function TdUtils.Version: string;
+class function dUtils.Version: string;
 begin
   libduallutils.Check;
   Result := TMarshal.ToString(libduallutils.du_version);
 end;
 
-class function TdUtils.MD5(const S: string): string;
+class function dUtils.MD5(const S: string): string;
 var
   M: TMarshaller;
   A: array[0..MD5_SIZE] of cchar;
@@ -89,7 +89,7 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
-class function TdUtils.SHA1(const S: string): string;
+class function dUtils.SHA1(const S: string): string;
 var
   M: TMarshaller;
   A: array[0..SHA1_SIZE] of cchar;
@@ -101,7 +101,7 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
-class function TdUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
+class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
   const AArgs, AEnvs: array of string; AWaiting: Boolean;
   out AExitCode: Integer): Boolean;
 var
@@ -140,6 +140,6 @@ end;
 initialization
 
 finalization
-  TdUtils.Unload;
+  dUtils.Unload;
 
 end.
