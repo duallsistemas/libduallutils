@@ -3,7 +3,7 @@ use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
 use std::ffi::CString;
-use std::fs;
+use std::fs::File;
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -81,7 +81,7 @@ pub unsafe extern "C" fn du_md5_file(
     if filename.is_null() || md5.is_null() || size <= 0 {
         return -1;
     }
-    match fs::File::open(from_c_str!(filename).unwrap()) {
+    match File::open(from_c_str!(filename).unwrap()) {
         Ok(mut file) => {
             let mut hasher = Md5::new();
             let mut buf = [0u8; BUFFER_SIZE];
@@ -155,7 +155,7 @@ pub unsafe extern "C" fn du_sha1_file(
     if filename.is_null() || sha1.is_null() || size <= 0 {
         return -1;
     }
-    match fs::File::open(from_c_str!(filename).unwrap()) {
+    match File::open(from_c_str!(filename).unwrap()) {
         Ok(mut file) => {
             let mut hasher = Sha1::new();
             let mut buf = [0u8; BUFFER_SIZE];
@@ -326,6 +326,7 @@ pub unsafe extern "C" fn du_execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn version() {
         unsafe {
@@ -369,6 +370,53 @@ mod tests {
     }
 
     #[test]
+    fn md5_file() {
+        unsafe {
+            let hash: [c_char; 33] = [0; 33];
+            assert_eq!(
+                du_md5_file(ptr::null(), hash.as_ptr() as *mut c_char, 33),
+                -1
+            );
+            assert_eq!(
+                du_md5_file(
+                    to_c_str!("abc123.txt").unwrap().as_ptr(),
+                    ptr::null_mut(),
+                    33
+                ),
+                -1
+            );
+            assert_eq!(
+                du_md5_file(
+                    to_c_str!("abc123.txt").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    0
+                ),
+                -1
+            );
+            assert_eq!(
+                du_md5_file(
+                    to_c_str!("blah blah").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    33
+                ),
+                -2
+            );
+            assert_eq!(
+                du_md5_file(
+                    to_c_str!("LICENSE").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    hash.len()
+                ),
+                0
+            );
+            assert_eq!(
+                from_c_str!(hash.as_ptr()).unwrap(),
+                "d88e9e08385d2a17052dac348bde4bc1"
+            );
+        }
+    }
+
+    #[test]
     fn sha1() {
         unsafe {
             let hash: [c_char; 41] = [0; 41];
@@ -396,6 +444,53 @@ mod tests {
             assert_eq!(
                 from_c_str!(hash.as_ptr()).unwrap(),
                 "6367c48dd193d56ea7b0baad25b19455e529f5ee"
+            );
+        }
+    }
+
+    #[test]
+    fn sha1_file() {
+        unsafe {
+            let hash: [c_char; 41] = [0; 41];
+            assert_eq!(
+                du_sha1_file(ptr::null(), hash.as_ptr() as *mut c_char, 41),
+                -1
+            );
+            assert_eq!(
+                du_sha1_file(
+                    to_c_str!("abc123.txt").unwrap().as_ptr(),
+                    ptr::null_mut(),
+                    41
+                ),
+                -1
+            );
+            assert_eq!(
+                du_sha1_file(
+                    to_c_str!("abc123.txt").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    0
+                ),
+                -1
+            );
+            assert_eq!(
+                du_sha1_file(
+                    to_c_str!("blah blah").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    41
+                ),
+                -2
+            );
+            assert_eq!(
+                du_sha1_file(
+                    to_c_str!("LICENSE").unwrap().as_ptr(),
+                    hash.as_ptr() as *mut c_char,
+                    hash.len()
+                ),
+                0
+            );
+            assert_eq!(
+                from_c_str!(hash.as_ptr()).unwrap(),
+                "6d842099530d126dea37db858a755e444f4de3f7"
             );
         }
     }
