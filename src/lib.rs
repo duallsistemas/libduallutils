@@ -3,11 +3,18 @@ use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
 use std::ffi::CString;
+use std::fs;
 use std::io::ErrorKind::NotFound;
+use std::io::Read;
 use std::process::{Command, Stdio};
 use std::ptr;
 
 mod utils;
+
+#[cfg(target_os = "windows")]
+const BUFFER_SIZE: usize = 4096; /* 4k */
+#[cfg(not(target_os = "windows"))]
+const BUFFER_SIZE: usize = 16384; /* 16k */
 
 /// Retrieves library version as C-like string.
 #[no_mangle]
@@ -15,15 +22,15 @@ pub unsafe extern "C" fn du_version() -> *const c_char {
     concat!(env!("CARGO_PKG_VERSION"), '\0').as_ptr() as *const c_char
 }
 
-/// Frees the C-lik string `s` from the memory.
+/// Frees the C-lik string `cstr` from the memory.
 ///
 /// # Arguments
 ///
-/// * `[in] s` - C-like string to be freed.
+/// * `[in] cstr` - C-like string to be freed.
 #[no_mangle]
-pub unsafe extern "C" fn du_dispose(s: *mut c_char) {
-    if !s.is_null() {
-        CString::from_raw(s);
+pub unsafe extern "C" fn du_dispose(cstr: *mut c_char) {
+    if !cstr.is_null() {
+        CString::from_raw(cstr);
     }
 }
 
@@ -31,28 +38,83 @@ pub unsafe extern "C" fn du_dispose(s: *mut c_char) {
 ///
 /// # Arguments
 ///
-/// * `[in] s` - Given C-like string.
+/// * `[in] cstr` - Given C-like string.
 /// * `[in,out] md5` - Generated MD5.
-/// * `[in] size` - Size of the `s` string.
+/// * `[in] size` - Size of the `cstr` string.
 ///
 /// # Returns
 ///
 /// * `0` - Success.
 /// * `-1` - Invalid argument.
 #[no_mangle]
-pub unsafe extern "C" fn du_md5(s: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
-    if s.is_null() || md5.is_null() || size <= 0 {
+pub unsafe extern "C" fn du_md5(cstr: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
+    if cstr.is_null() || md5.is_null() || size <= 0 {
         return -1;
     }
     let mut hasher = Md5::new();
-    hasher.input_str(from_c_str!(s).unwrap());
+    hasher.input_str(from_c_str!(cstr).unwrap());
     let hash = to_c_str!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
     if buf_size > buf.len() {
         buf_size = buf.len()
     }
-    copy_memory!(buf.as_ptr(), md5, buf_size);
+    copy!(buf.as_ptr(), md5, buf_size);
+    0
+}
+
+/// Generates a MD5 from a given file.
+///
+/// # Arguments
+///
+/// * `[in] cstr` - Filename as C-like string.
+/// * `[in,out] md5` - Generated MD5.
+/// * `[in] size` - Size of the `cstr` string.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - File not found.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_md5_file(
+    filename: *const c_char,
+    md5: *mut c_char,
+    size: size_t,
+) -> c_int {
+    if filename.is_null() || md5.is_null() || size <= 0 {
+        return -1;
+    }
+    match fs::File::open(from_c_str!(filename).unwrap()) {
+        Ok(mut file) => {
+            let mut hasher = Md5::new();
+            let mut buf = [0u8; BUFFER_SIZE];
+            loop {
+                let n = match file.read(&mut buf) {
+                    Ok(n) => n,
+                    Err(_) => return -3,
+                };
+                hasher.input(&buf[..n]);
+                if n == 0 || n < BUFFER_SIZE {
+                    break;
+                }
+            }
+            let hash = to_c_str!(hasher.result_str()).unwrap();
+            let buf = hash.to_bytes_with_nul();
+            let mut buf_size = size;
+            if buf_size > buf.len() {
+                buf_size = buf.len()
+            }
+            copy!(buf.as_ptr(), md5, buf_size);
+        }
+        Err(e) => {
+            if e.kind() == NotFound {
+                return -2;
+            }
+            return -3;
+        }
+    }
     0
 }
 
@@ -60,28 +122,83 @@ pub unsafe extern "C" fn du_md5(s: *const c_char, md5: *mut c_char, size: size_t
 ///
 /// # Arguments
 ///
-/// * `[in] s` - Given C-like string.
+/// * `[in] cstr` - Given C-like string.
 /// * `[in,out] sha1` - Generated SHA-1.
-/// * `[in] size` - Size of the `s` string.
+/// * `[in] size` - Size of the `cstr` string.
 ///
 /// # Returns
 ///
 /// * `0` - Success.
 /// * `-1` - Invalid argument.
 #[no_mangle]
-pub unsafe extern "C" fn du_sha1(s: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
-    if s.is_null() || sha1.is_null() || size <= 0 {
+pub unsafe extern "C" fn du_sha1(cstr: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
+    if cstr.is_null() || sha1.is_null() || size <= 0 {
         return -1;
     }
     let mut hasher = Sha1::new();
-    hasher.input_str(from_c_str!(s).unwrap());
+    hasher.input_str(from_c_str!(cstr).unwrap());
     let hash = to_c_str!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
     if buf_size > buf.len() {
         buf_size = buf.len()
     }
-    copy_memory!(buf.as_ptr(), sha1, buf_size);
+    copy!(buf.as_ptr(), sha1, buf_size);
+    0
+}
+
+/// Generates a SHA-1 from a given file.
+///
+/// # Arguments
+///
+/// * `[in] cstr` - Filename as C-like string.
+/// * `[in,out] sha1` - Generated SHA-1.
+/// * `[in] size` - Size of the `cstr` string.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - File not found.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_sha1_file(
+    filename: *const c_char,
+    sha1: *mut c_char,
+    size: size_t,
+) -> c_int {
+    if filename.is_null() || sha1.is_null() || size <= 0 {
+        return -1;
+    }
+    match fs::File::open(from_c_str!(filename).unwrap()) {
+        Ok(mut file) => {
+            let mut hasher = Sha1::new();
+            let mut buf = [0u8; BUFFER_SIZE];
+            loop {
+                let n = match file.read(&mut buf) {
+                    Ok(n) => n,
+                    Err(_) => return -3,
+                };
+                hasher.input(&buf[..n]);
+                if n == 0 || n < BUFFER_SIZE {
+                    break;
+                }
+            }
+            let hash = to_c_str!(hasher.result_str()).unwrap();
+            let buf = hash.to_bytes_with_nul();
+            let mut buf_size = size;
+            if buf_size > buf.len() {
+                buf_size = buf.len()
+            }
+            copy!(buf.as_ptr(), sha1, buf_size);
+        }
+        Err(e) => {
+            if e.kind() == NotFound {
+                return -2;
+            }
+            return -3;
+        }
+    }
     0
 }
 
