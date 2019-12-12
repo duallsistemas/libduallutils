@@ -199,9 +199,6 @@ pub unsafe extern "C" fn du_execute(
     if !workdir.is_null() {
         cmd.current_dir(cs!(workdir).unwrap());
     }
-    if cfg!(test) {
-        cmd.stdout(Stdio::null());
-    }
     if !args.is_null() {
         for i in 0.. {
             let arg: *const c_char = *(args.offset(i));
@@ -357,6 +354,56 @@ mod tests {
                 0
             );
             assert_eq!(code, 0);
+        }
+    }
+
+    #[test]
+    fn execute() {
+        unsafe {
+            let mut output: *mut c_char = ptr::null_mut();
+            let mut error: *mut c_char = ptr::null_mut();
+            let mut code: c_int = 0;
+            assert_eq!(
+                du_execute(
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    &mut output,
+                    &mut error,
+                    &mut code
+                ),
+                -1
+            );
+            assert_eq!(
+                du_execute(
+                    sc!("blah blah").unwrap().as_ptr(),
+                    ptr::null(),
+                    ptr::null(),
+                    ptr::null(),
+                    &mut output,
+                    &mut error,
+                    &mut code
+                ),
+                -2
+            );
+            let args: [*const c_char; 2] =
+                [CString::new("My test").unwrap().into_raw(), ptr::null()];
+            assert_eq!(
+                du_execute(
+                    sc!("echo").unwrap().as_ptr(),
+                    ptr::null(),
+                    args.as_ptr(),
+                    ptr::null(),
+                    &mut output,
+                    &mut error,
+                    &mut code
+                ),
+                0
+            );
+            CString::from_raw(args[0] as *mut c_char);
+            assert_eq!(code, 0);
+            assert_eq!(cs!(output).unwrap(), "My test\n");
         }
     }
 }
