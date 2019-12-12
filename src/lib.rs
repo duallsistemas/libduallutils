@@ -122,13 +122,7 @@ pub unsafe extern "C" fn du_spawn(
         cmd.stdout(Stdio::null());
     }
     if !args.is_null() {
-        for i in 0.. {
-            let arg = *(args.offset(i));
-            if arg == ptr::null() {
-                break;
-            }
-            cmd.arg(from_c_str!(arg).unwrap());
-        }
+        cmd.args(&from_c_array!(args));
     }
     if !envs.is_null() {
         for i in 0.. {
@@ -198,13 +192,7 @@ pub unsafe extern "C" fn du_execute(
         cmd.current_dir(from_c_str!(workdir).unwrap());
     }
     if !args.is_null() {
-        for i in 0.. {
-            let arg = *(args.offset(i));
-            if arg == ptr::null() {
-                break;
-            }
-            cmd.arg(from_c_str!(arg).unwrap());
-        }
+        cmd.args(&from_c_array!(args));
     }
     if !envs.is_null() {
         for i in 0.. {

@@ -1,9 +1,25 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! from_c_str {
-    ($pointer:expr) => {
-        std::ffi::CStr::from_ptr($pointer).to_str()
+    ($c_str:expr) => {
+        std::ffi::CStr::from_ptr($c_str).to_str()
     };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! from_c_array {
+    ($array:expr) => {{
+        let mut array = Vec::new();
+        for i in 0.. {
+            let arg = *($array.offset(i));
+            if arg == ptr::null() {
+                break;
+            }
+            array.push(from_c_str!(arg).unwrap());
+        }
+        array
+    }};
 }
 
 #[doc(hidden)]
