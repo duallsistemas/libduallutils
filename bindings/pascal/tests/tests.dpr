@@ -36,12 +36,28 @@ begin
   Assert(O = 0);
 end;
 
+procedure TestExecute;
+var
+  O, E: string;
+  C: Integer;
+begin
+  Assert(not dUtils.Execute('blah blah', [], O));
+{$IFDEF MSWINDOWS}
+  Assert(dUtils.Execute('cmd', '', ['/C', 'echo %foo%'], ['foo=bar'], O, E, C));
+{$ELSE}
+  Assert(dUtils.Execute('sh', '', ['-c', 'echo $foo'], ['foo=bar'], O, E, C));
+{$ENDIF}
+  Assert(O.Trim.Equals('bar'));
+  Assert(C = 0);
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
   TestMD5;
   TestSHA1;
   TestSpawn;
+  TestExecute;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');
