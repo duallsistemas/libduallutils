@@ -76,11 +76,15 @@ type
 
 var
   du_version: function: Pcchar; cdecl;
+  du_dispose: procedure(s: Pcchar); cdecl;
   du_md5: function(const str: Pcchar; md5: Pcchar; size: csize_t): cint; cdecl;
   du_sha1: function(const str: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
   du_spawn: function(const &program: Pcchar; const workdir: Pcchar;
     const args: PPcchar; const envs: PPcchar; waiting: cbool;
-    output: Pcint): cint; cdecl;
+    exitcode: Pcint): cint; cdecl;
+  du_execute: function(const &program: Pcchar; const workdir: Pcchar;
+    const args: PPcchar; const envs: PPcchar; output: PPcchar;
+    error: PPcchar; exitcode: Pcint): cint; cdecl;
 
 procedure Load(const ALibraryName: TFileName);
 
@@ -113,9 +117,11 @@ begin
     GLibLastName := ALibraryName;
 
     du_version := GetProcAddress(GLibHandle, 'du_version');
+    du_dispose := GetProcAddress(GLibHandle, 'du_dispose');
     du_md5 := GetProcAddress(GLibHandle, 'du_md5');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
+    du_execute := GetProcAddress(GLibHandle, 'du_execute');
   finally
     GCS.Release;
   end;
@@ -133,9 +139,11 @@ begin
     GLibLastName := '';
 
     du_version := nil;
+    du_dispose := nil;
     du_md5 := nil;
     du_sha1 := nil;
     du_spawn := nil;
+    du_execute := nil;
   finally
     GCS.Release;
   end;

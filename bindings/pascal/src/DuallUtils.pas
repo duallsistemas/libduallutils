@@ -42,10 +42,15 @@ type
     class function MD5(const S: string): string; static;
     class function SHA1(const S: string): string; static;
     class function Spawn(const AProgram: TFileName; const AWorkDir: string;
-      const AArgs, AEnvs: array of string;
-      AWaiting: Boolean; out AExitCode: Integer): Boolean; overload; static;
+      const AArgs, AEnvs: array of string; AWaiting: Boolean;
+      out AExitCode: Integer): Boolean; overload; static;
     class function Spawn(const AProgram: TFileName; const AArgs: array of string;
       AWaiting: Boolean = False): Boolean; overload; static;
+    class function Execute(const AProgram: TFileName; const AWorkDir: string;
+      const AArgs, AEnvs: array of string; out AOutput, AError: string;
+      out AExitCode: Integer): Boolean; overload; static;
+    class function Execute(const AProgram: TFileName; const AArgs: array of string;
+      out AOutput: string): Boolean; overload; static;
   end;
 
 implementation
@@ -145,6 +150,58 @@ var
   O: Integer;
 begin
   Result := dUtils.Spawn(AProgram, '', AArgs, [], AWaiting, O);
+end;
+
+class function dUtils.Execute(const AProgram: TFileName; const AWorkDir: string;
+  const AArgs, AEnvs: array of string; out AOutput, AError: string;
+  out AExitCode: Integer): Boolean;
+var
+  M: TMarshaller;
+  A, E: array of Pcchar;
+  SO, SE: Pcchar;
+  R: cint;
+  I: Byte;
+begin
+  libduallutils.Check;
+  I := Length(AArgs);
+  if I > 0 then
+  begin
+    SetLength(A, Succ(I));
+    for I := Low(AArgs) to High(AArgs) do
+      A[I] := M.ToCString(AArgs[I]);
+    A[Length(AArgs)] := nil;
+  end;
+  I := Length(AEnvs);
+  if I > 0 then
+  begin
+    SetLength(E, Succ(I));
+    for I := Low(AEnvs) to High(AEnvs) do
+      E[I] := M.ToCString(AEnvs[I]);
+    E[Length(AEnvs)] := nil;
+  end;
+  R := libduallutils.du_execute(M.ToCString(AProgram),
+    M.ToCNullableString(AWorkDir), @A[0], @E[0], @SO, @SE, @AExitCode);
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownLibraryError;
+  end;
+  AOutput := TMarshal.ToString(SO);
+  du_dispose(SO);
+  AError := TMarshal.ToString(SE);
+  du_dispose(SE);
+  Result := True;
+end;
+
+class function dUtils.Execute(const AProgram: TFileName;
+  const AArgs: array of string; out AOutput: string): Boolean;
+var
+  E: string;
+  C: Integer;
+begin
+  Result := dUtils.Execute(AProgram, '', AArgs, [], AOutput, E, C);
+  if AOutput.IsEmpty and not E.IsEmpty then
+    AOutput := E;
 end;
 
 initialization
