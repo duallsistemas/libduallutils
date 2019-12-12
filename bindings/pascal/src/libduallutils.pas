@@ -76,15 +76,21 @@ type
 
 var
   du_version: function: Pcchar; cdecl;
-  du_dispose: procedure(s: Pcchar); cdecl;
-  du_md5: function(const str: Pcchar; md5: Pcchar; size: csize_t): cint; cdecl;
-  du_sha1: function(const str: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
+  du_dispose: procedure(cstr: Pcchar); cdecl;
+  du_md5: function(const cstr: Pcchar; md5: Pcchar; size: csize_t): cint; cdecl;
+  du_md5_file: function(const filename: Pcchar; md5: Pcchar;
+    size: csize_t): cint; cdecl;
+  du_sha1: function(const cstr: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
+  du_sha1_file: function(const filename: Pcchar; sha1: Pcchar;
+    size: csize_t): cint; cdecl;
   du_spawn: function(const &program: Pcchar; const workdir: Pcchar;
     const args: PPcchar; const envs: PPcchar; waiting: cbool;
     exitcode: Pcint): cint; cdecl;
   du_execute: function(const &program: Pcchar; const workdir: Pcchar;
     const args: PPcchar; const envs: PPcchar; output: PPcchar;
     error: PPcchar; exitcode: Pcint): cint; cdecl;
+
+function TryLoad(const ALibraryName: TFileName): Boolean;
 
 procedure Load(const ALibraryName: TFileName);
 
@@ -99,31 +105,41 @@ var
   GLibHandle: TLibHandle = NilHandle;
   GLibLastName: TFileName = '';
 
-procedure Load(const ALibraryName: TFileName);
+function TryLoad(const ALibraryName: TFileName): Boolean;
 begin
+  if ALibraryName = '' then
+    raise EArgumentException.Create(SduLibEmptyName);
   GCS.Acquire;
   try
-    if ALibraryName = '' then
-      raise EArgumentException.Create(SduLibEmptyName);
+    if GLibHandle <> NilHandle then
+      FreeLibrary(GLibHandle);
     GLibHandle := SafeLoadLibrary(ALibraryName);
     if GLibHandle = NilHandle then
-    begin
-{$IFDEF MSWINDOWS}
-      if GetLastError = ERROR_BAD_EXE_FORMAT then
-        raise EduLibNotLoaded.CreateFmt(SduLibInvalid, [ALibraryName]);
-{$ENDIF}
-      raise EduLibNotLoaded.CreateFmt(SduLibNotLoaded, [ALibraryName])
-    end;
+      Exit(False);
     GLibLastName := ALibraryName;
-
     du_version := GetProcAddress(GLibHandle, 'du_version');
     du_dispose := GetProcAddress(GLibHandle, 'du_dispose');
     du_md5 := GetProcAddress(GLibHandle, 'du_md5');
+    du_md5_file := GetProcAddress(GLibHandle, 'du_md5_file');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
+    du_sha1_file := GetProcAddress(GLibHandle, 'du_sha1_file');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
     du_execute := GetProcAddress(GLibHandle, 'du_execute');
+    Result := True;
   finally
     GCS.Release;
+  end;
+end;
+
+procedure Load(const ALibraryName: TFileName);
+begin
+  if not TryLoad(ALibraryName) then
+  begin
+{$IFDEF MSWINDOWS}
+    if GetLastError = ERROR_BAD_EXE_FORMAT then
+      raise EduLibNotLoaded.CreateFmt(SduLibInvalid, [ALibraryName]);
+{$ENDIF}
+    raise EduLibNotLoaded.CreateFmt(SduLibNotLoaded, [ALibraryName])
   end;
 end;
 
@@ -131,17 +147,16 @@ procedure Unload;
 begin
   GCS.Acquire;
   try
-    if GLibHandle = NilHandle then
-      Exit;
-    if not FreeLibrary(GLibHandle) then
+    if (GLibHandle = NilHandle) or (not FreeLibrary(GLibHandle)) then
       Exit;
     GLibHandle := NilHandle;
     GLibLastName := '';
-
     du_version := nil;
     du_dispose := nil;
     du_md5 := nil;
+    du_md5_file := nil;
     du_sha1 := nil;
+    du_sha1_file := nil;
     du_spawn := nil;
     du_execute := nil;
   finally
@@ -158,8 +173,10 @@ end;
 
 initialization
   GCS := TCriticalSection.Create;
+  TryLoad(DU_LIB_NAME);
 
 finalization
+  Unload;
   FreeAndNil(GCS);
 
 end.

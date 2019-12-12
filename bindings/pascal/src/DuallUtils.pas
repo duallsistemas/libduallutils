@@ -40,7 +40,9 @@ type
     class procedure Unload; static;
     class function Version: string; static;
     class function MD5(const S: string): string; static;
+    class function MD5File(const AFileName: TFileName): string; static;
     class function SHA1(const S: string): string; static;
+    class function SHA1File(const AFileName: TFileName): string; static;
     class function Spawn(const AProgram: TFileName; const AWorkDir: string;
       const AArgs, AEnvs: array of string; AWaiting: Boolean;
       out AExitCode: Integer): Boolean; overload; static;
@@ -63,6 +65,22 @@ end;
 procedure RaiseUnknownLibraryError; inline;
 begin
   raise EdUtils.Create(SUnknownLibraryError);
+end;
+
+function ArrayToCArray(const AArray: array of string;
+  out AOutput: TArray<Pcchar>): PPChar;
+var
+  M: TMarshaller;
+  I: Integer;
+begin
+  I := Length(AArray);
+  if I = 0 then
+    Exit(nil);
+  SetLength(AOutput, Succ(I));
+  for I := Low(AArray) to High(AArray) do
+    AOutput[I] := M.ToCString(AArray[I]);
+  AOutput[Length(AArray)] := nil;
+  Result := @AOutput[0];
 end;
 
 { dUtils }
@@ -96,6 +114,19 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
+class function dUtils.MD5File(const AFileName: TFileName): string;
+var
+  M: TMarshaller;
+  A: array[0..MD5_SIZE] of cchar;
+begin
+  libduallutils.Check;
+  A[0] := 0;
+  if libduallutils.du_md5_file(M.ToCString(AFileName),
+    @A[0], SizeOf(A)) = -1 then
+    RaiseInvalidFunctionArgument;
+  Result := TMarshal.ToString(@A[0]);
+end;
+
 class function dUtils.SHA1(const S: string): string;
 var
   M: TMarshaller;
@@ -108,6 +139,19 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
+class function dUtils.SHA1File(const AFileName: TFileName): string;
+var
+  M: TMarshaller;
+  A: array[0..SHA1_SIZE] of cchar;
+begin
+  libduallutils.Check;
+  A[0] := 0;
+  if libduallutils.du_sha1_file(M.ToCString(AFileName),
+    @A[0], SizeOf(A)) = -1 then
+    RaiseInvalidFunctionArgument;
+  Result := TMarshal.ToString(@A[0]);
+end;
+
 class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
   const AArgs, AEnvs: array of string; AWaiting: Boolean;
   out AExitCode: Integer): Boolean;
@@ -115,27 +159,11 @@ var
   M: TMarshaller;
   A, E: array of Pcchar;
   R: cint;
-  I: Byte;
 begin
   libduallutils.Check;
-  I := Length(AArgs);
-  if I > 0 then
-  begin
-    SetLength(A, Succ(I));
-    for I := Low(AArgs) to High(AArgs) do
-      A[I] := M.ToCString(AArgs[I]);
-    A[Length(AArgs)] := nil;
-  end;
-  I := Length(AEnvs);
-  if I > 0 then
-  begin
-    SetLength(E, Succ(I));
-    for I := Low(AEnvs) to High(AEnvs) do
-      E[I] := M.ToCString(AEnvs[I]);
-    E[Length(AEnvs)] := nil;
-  end;
   R := libduallutils.du_spawn(M.ToCString(AProgram),
-    M.ToCNullableString(AWorkDir), @A[0], @E[0], AWaiting, @AExitCode);
+    M.ToCNullableString(AWorkDir), ArrayToCArray(AArgs, A),
+    ArrayToCArray(AEnvs, E), AWaiting, @AExitCode);
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
@@ -160,27 +188,11 @@ var
   A, E: array of Pcchar;
   SO, SE: Pcchar;
   R: cint;
-  I: Byte;
 begin
   libduallutils.Check;
-  I := Length(AArgs);
-  if I > 0 then
-  begin
-    SetLength(A, Succ(I));
-    for I := Low(AArgs) to High(AArgs) do
-      A[I] := M.ToCString(AArgs[I]);
-    A[Length(AArgs)] := nil;
-  end;
-  I := Length(AEnvs);
-  if I > 0 then
-  begin
-    SetLength(E, Succ(I));
-    for I := Low(AEnvs) to High(AEnvs) do
-      E[I] := M.ToCString(AEnvs[I]);
-    E[Length(AEnvs)] := nil;
-  end;
   R := libduallutils.du_execute(M.ToCString(AProgram),
-    M.ToCNullableString(AWorkDir), @A[0], @E[0], @SO, @SE, @AExitCode);
+    M.ToCNullableString(AWorkDir), ArrayToCArray(AArgs, A),
+    ArrayToCArray(AEnvs, E), @SO, @SE, @AExitCode);
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
@@ -203,10 +215,5 @@ begin
   if AOutput.IsEmpty and not E.IsEmpty then
     AOutput := E;
 end;
-
-initialization
-
-finalization
-  dUtils.Unload;
 
 end.

@@ -10,6 +10,7 @@ program tests;
 
 uses
   SysUtils,
+  Classes,
   DuallUtils;
 
 procedure TestVersion;
@@ -22,9 +23,37 @@ begin
   Assert(dUtils.MD5('abc123') = 'e99a18c428cb38d5f260853678922e03');
 end;
 
+procedure TestMD5File;
+var
+  F: TBytesStream;
+begin
+  F := TBytesStream.Create(BytesOf('abc123'));
+  try
+    F.SaveToFile('abc123.txt');
+    Assert(dUtils.MD5File('abc123.txt') = 'e99a18c428cb38d5f260853678922e03');
+    DeleteFile('abc123.txt');
+  finally
+    F.Destroy;
+  end;
+end;
+
 procedure TestSHA1;
 begin
   Assert(dUtils.SHA1('abc123') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
+end;
+
+procedure TestSHA1File;
+var
+  F: TBytesStream;
+begin
+  F := TBytesStream.Create(BytesOf('abc123'));
+  try
+    F.SaveToFile('abc123.txt');
+    Assert(dUtils.SHA1File('abc123.txt') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
+    DeleteFile('abc123.txt');
+  finally
+    F.Destroy;
+  end;
 end;
 
 procedure TestSpawn;
@@ -55,7 +84,9 @@ begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
   TestMD5;
+  TestMD5File;
   TestSHA1;
+  TestSHA1File;
   TestSpawn;
   TestExecute;
   Writeln('All tests passed!');
