@@ -54,12 +54,7 @@ pub unsafe extern "C" fn du_md5(cstr: *const c_char, md5: *mut c_char, size: siz
     let mut hasher = Md5::new();
     hasher.input_str(from_c_str!(cstr).unwrap());
     let hash = to_c_str!(hasher.result_str()).unwrap();
-    let buf = hash.to_bytes_with_nul();
-    let mut buf_size = size;
-    if buf_size > buf.len() {
-        buf_size = buf.len()
-    }
-    copy!(buf.as_ptr(), md5, buf_size);
+    copy_c_str!(hash, md5, size);
     0
 }
 
@@ -101,12 +96,7 @@ pub unsafe extern "C" fn du_md5_file(
                 }
             }
             let hash = to_c_str!(hasher.result_str()).unwrap();
-            let buf = hash.to_bytes_with_nul();
-            let mut buf_size = size;
-            if buf_size > buf.len() {
-                buf_size = buf.len()
-            }
-            copy!(buf.as_ptr(), md5, buf_size);
+            copy_c_str!(hash, md5, size);
         }
         Err(e) => {
             if e.kind() == NotFound {
@@ -138,12 +128,7 @@ pub unsafe extern "C" fn du_sha1(cstr: *const c_char, sha1: *mut c_char, size: s
     let mut hasher = Sha1::new();
     hasher.input_str(from_c_str!(cstr).unwrap());
     let hash = to_c_str!(hasher.result_str()).unwrap();
-    let buf = hash.to_bytes_with_nul();
-    let mut buf_size = size;
-    if buf_size > buf.len() {
-        buf_size = buf.len()
-    }
-    copy!(buf.as_ptr(), sha1, buf_size);
+    copy_c_str!(hash, sha1, size);
     0
 }
 
@@ -185,12 +170,7 @@ pub unsafe extern "C" fn du_sha1_file(
                 }
             }
             let hash = to_c_str!(hasher.result_str()).unwrap();
-            let buf = hash.to_bytes_with_nul();
-            let mut buf_size = size;
-            if buf_size > buf.len() {
-                buf_size = buf.len()
-            }
-            copy!(buf.as_ptr(), sha1, buf_size);
+            copy_c_str!(hash, sha1, size);
         }
         Err(e) => {
             if e.kind() == NotFound {

@@ -41,3 +41,16 @@ macro_rules! copy {
         )
     };
 }
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! copy_c_str {
+    ($src:expr,$dest:expr,$size:expr) => {
+        let buf = $src.to_bytes_with_nul();
+        let mut buf_size = $size;
+        if buf_size > buf.len() {
+            buf_size = buf.len()
+        }
+        copy!(buf.as_ptr(), $dest, buf_size);
+    };
+}
