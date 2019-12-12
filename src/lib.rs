@@ -45,14 +45,14 @@ pub unsafe extern "C" fn du_md5(s: *const c_char, md5: *mut c_char, size: size_t
         return -1;
     }
     let mut hasher = Md5::new();
-    hasher.input_str(cs!(s).unwrap());
-    let hash = sc!(hasher.result_str()).unwrap();
+    hasher.input_str(from_c_str!(s).unwrap());
+    let hash = to_c_str!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
     if buf_size > buf.len() {
         buf_size = buf.len()
     }
-    copy!(buf.as_ptr(), md5, buf_size);
+    copy_memory!(buf.as_ptr(), md5, buf_size);
     0
 }
 
@@ -74,14 +74,14 @@ pub unsafe extern "C" fn du_sha1(s: *const c_char, sha1: *mut c_char, size: size
         return -1;
     }
     let mut hasher = Sha1::new();
-    hasher.input_str(cs!(s).unwrap());
-    let hash = sc!(hasher.result_str()).unwrap();
+    hasher.input_str(from_c_str!(s).unwrap());
+    let hash = to_c_str!(hasher.result_str()).unwrap();
     let buf = hash.to_bytes_with_nul();
     let mut buf_size = size;
     if buf_size > buf.len() {
         buf_size = buf.len()
     }
-    copy!(buf.as_ptr(), sha1, buf_size);
+    copy_memory!(buf.as_ptr(), sha1, buf_size);
     0
 }
 
@@ -114,33 +114,31 @@ pub unsafe extern "C" fn du_spawn(
     if program.is_null() {
         return -1;
     }
-    let mut cmd = Command::new(cs!(program).unwrap());
+    let mut cmd = Command::new(from_c_str!(program).unwrap());
     if !workdir.is_null() {
-        cmd.current_dir(cs!(workdir).unwrap());
+        cmd.current_dir(from_c_str!(workdir).unwrap());
     }
     if cfg!(test) {
         cmd.stdout(Stdio::null());
     }
     if !args.is_null() {
         for i in 0.. {
-            let arg: *const c_char = *(args.offset(i));
-            if arg != ptr::null() {
-                cmd.arg(cs!(arg).unwrap());
-            } else {
+            let arg = *(args.offset(i));
+            if arg == ptr::null() {
                 break;
             }
+            cmd.arg(from_c_str!(arg).unwrap());
         }
     }
     if !envs.is_null() {
         for i in 0.. {
-            let env: *const c_char = *(envs.offset(i));
-            if env != ptr::null() {
-                let pair: Vec<&str> = cs!(env).unwrap().splitn(2, "=").collect();
-                if pair.len() == 2 {
-                    cmd.env(pair.first().unwrap(), pair.last().unwrap());
-                }
-            } else {
+            let env = *(envs.offset(i));
+            if env == ptr::null() {
                 break;
+            }
+            let pair: Vec<&str> = from_c_str!(env).unwrap().splitn(2, "=").collect();
+            if pair.len() == 2 {
+                cmd.env(pair.first().unwrap(), pair.last().unwrap());
             }
         }
     }
@@ -195,39 +193,37 @@ pub unsafe extern "C" fn du_execute(
     if program.is_null() {
         return -1;
     }
-    let mut cmd = Command::new(cs!(program).unwrap());
+    let mut cmd = Command::new(from_c_str!(program).unwrap());
     if !workdir.is_null() {
-        cmd.current_dir(cs!(workdir).unwrap());
+        cmd.current_dir(from_c_str!(workdir).unwrap());
     }
     if !args.is_null() {
         for i in 0.. {
-            let arg: *const c_char = *(args.offset(i));
-            if arg != ptr::null() {
-                cmd.arg(cs!(arg).unwrap());
-            } else {
+            let arg = *(args.offset(i));
+            if arg == ptr::null() {
                 break;
             }
+            cmd.arg(from_c_str!(arg).unwrap());
         }
     }
     if !envs.is_null() {
         for i in 0.. {
-            let env: *const c_char = *(envs.offset(i));
-            if env != ptr::null() {
-                let pair: Vec<&str> = cs!(env).unwrap().splitn(2, "=").collect();
-                if pair.len() == 2 {
-                    cmd.env(pair.first().unwrap(), pair.last().unwrap());
-                }
-            } else {
+            let env = *(envs.offset(i));
+            if env == ptr::null() {
                 break;
+            }
+            let pair: Vec<&str> = from_c_str!(env).unwrap().splitn(2, "=").collect();
+            if pair.len() == 2 {
+                cmd.env(pair.first().unwrap(), pair.last().unwrap());
             }
         }
     }
     match cmd.output() {
         Ok(child) => {
-            *output = sc!(String::from_utf8(child.stdout).unwrap())
+            *output = to_c_str!(String::from_utf8(child.stdout).unwrap())
                 .unwrap()
                 .into_raw();
-            *error = sc!(String::from_utf8(child.stderr).unwrap())
+            *error = to_c_str!(String::from_utf8(child.stderr).unwrap())
                 .unwrap()
                 .into_raw();
             *exitcode = child.status.code().unwrap();
@@ -248,7 +244,10 @@ mod tests {
     #[test]
     fn version() {
         unsafe {
-            assert_eq!(cs!(du_version()).unwrap(), env!("CARGO_PKG_VERSION"));
+            assert_eq!(
+                from_c_str!(du_version()).unwrap(),
+                env!("CARGO_PKG_VERSION")
+            );
         }
     }
 
@@ -258,12 +257,12 @@ mod tests {
             let hash: [c_char; 33] = [0; 33];
             assert_eq!(du_md5(ptr::null(), hash.as_ptr() as *mut c_char, 33), -1);
             assert_eq!(
-                du_md5(sc!("abc123").unwrap().as_ptr(), ptr::null_mut(), 33),
+                du_md5(to_c_str!("abc123").unwrap().as_ptr(), ptr::null_mut(), 33),
                 -1
             );
             assert_eq!(
                 du_md5(
-                    sc!("abc123").unwrap().as_ptr(),
+                    to_c_str!("abc123").unwrap().as_ptr(),
                     hash.as_ptr() as *mut c_char,
                     0
                 ),
@@ -271,14 +270,14 @@ mod tests {
             );
             assert_eq!(
                 du_md5(
-                    sc!("abc123").unwrap().as_ptr(),
+                    to_c_str!("abc123").unwrap().as_ptr(),
                     hash.as_ptr() as *mut c_char,
                     hash.len()
                 ),
                 0
             );
             assert_eq!(
-                cs!(hash.as_ptr()).unwrap(),
+                from_c_str!(hash.as_ptr()).unwrap(),
                 "e99a18c428cb38d5f260853678922e03"
             );
         }
@@ -290,12 +289,12 @@ mod tests {
             let hash: [c_char; 41] = [0; 41];
             assert_eq!(du_sha1(ptr::null(), hash.as_ptr() as *mut c_char, 41), -1);
             assert_eq!(
-                du_sha1(sc!("abc123").unwrap().as_ptr(), ptr::null_mut(), 41),
+                du_sha1(to_c_str!("abc123").unwrap().as_ptr(), ptr::null_mut(), 41),
                 -1
             );
             assert_eq!(
                 du_sha1(
-                    sc!("abc123").unwrap().as_ptr(),
+                    to_c_str!("abc123").unwrap().as_ptr(),
                     hash.as_ptr() as *mut c_char,
                     0
                 ),
@@ -303,14 +302,14 @@ mod tests {
             );
             assert_eq!(
                 du_sha1(
-                    sc!("abc123").unwrap().as_ptr(),
+                    to_c_str!("abc123").unwrap().as_ptr(),
                     hash.as_ptr() as *mut c_char,
                     hash.len()
                 ),
                 0
             );
             assert_eq!(
-                cs!(hash.as_ptr()).unwrap(),
+                from_c_str!(hash.as_ptr()).unwrap(),
                 "6367c48dd193d56ea7b0baad25b19455e529f5ee"
             );
         }
@@ -333,7 +332,7 @@ mod tests {
             );
             assert_eq!(
                 du_spawn(
-                    sc!("blah blah").unwrap().as_ptr(),
+                    to_c_str!("blah blah").unwrap().as_ptr(),
                     ptr::null(),
                     ptr::null(),
                     ptr::null(),
@@ -344,7 +343,7 @@ mod tests {
             );
             assert_eq!(
                 du_spawn(
-                    sc!("echo").unwrap().as_ptr(),
+                    to_c_str!("echo").unwrap().as_ptr(),
                     ptr::null(),
                     ptr::null(),
                     ptr::null(),
@@ -377,7 +376,7 @@ mod tests {
             );
             assert_eq!(
                 du_execute(
-                    sc!("blah blah").unwrap().as_ptr(),
+                    to_c_str!("blah blah").unwrap().as_ptr(),
                     ptr::null(),
                     ptr::null(),
                     ptr::null(),
@@ -391,7 +390,7 @@ mod tests {
                 [CString::new("My test").unwrap().into_raw(), ptr::null()];
             assert_eq!(
                 du_execute(
-                    sc!("echo").unwrap().as_ptr(),
+                    to_c_str!("echo").unwrap().as_ptr(),
                     ptr::null(),
                     args.as_ptr(),
                     ptr::null(),
@@ -403,7 +402,7 @@ mod tests {
             );
             CString::from_raw(args[0] as *mut c_char);
             assert_eq!(code, 0);
-            assert_eq!(cs!(output).unwrap(), "My test\n");
+            assert_eq!(from_c_str!(output).unwrap().trim(), "My test");
         }
     }
 }

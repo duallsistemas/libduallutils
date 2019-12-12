@@ -1,23 +1,27 @@
 #[doc(hidden)]
 #[macro_export]
-macro_rules! cs {
-    ($rs:expr) => {
-        std::ffi::CStr::from_ptr($rs).to_str()
+macro_rules! from_c_str {
+    ($pointer:expr) => {
+        std::ffi::CStr::from_ptr($pointer).to_str()
     };
 }
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! sc {
-    ($cs:expr) => {
-        std::ffi::CString::new($cs)
+macro_rules! to_c_str {
+    ($string:expr) => {
+        std::ffi::CString::new($string)
     };
 }
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! copy {
-    ($s:expr,$d:expr,$sz:expr) => {
-        libc::memcpy($d as *mut libc::c_void, $s as *const libc::c_void, $sz)
+macro_rules! copy_memory {
+    ($src:expr,$dest:expr,$size:expr) => {
+        libc::memcpy(
+            $dest as *mut libc::c_void,
+            $src as *const libc::c_void,
+            $size,
+        )
     };
 }
