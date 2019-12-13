@@ -68,7 +68,7 @@ begin
 end;
 
 function ArrayToCArray(const AArray: array of string;
-  out AOutput: TArray<Pcchar>): PPChar;
+  out AOutput: TArray<Pcchar>): PPcchar;
 var
   M: TMarshaller;
   I: Integer;
@@ -157,7 +157,7 @@ class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
   out AExitCode: Integer): Boolean;
 var
   M: TMarshaller;
-  A, E: array of Pcchar;
+  A, E: TArray<Pcchar>;
   R: cint;
 begin
   libduallutils.Check;
@@ -185,7 +185,7 @@ class function dUtils.Execute(const AProgram: TFileName; const AWorkDir: string;
   out AExitCode: Integer): Boolean;
 var
   M: TMarshaller;
-  A, E: array of Pcchar;
+  A, E: TArray<Pcchar>;
   SO, SE: Pcchar;
   R: cint;
 begin
