@@ -223,7 +223,7 @@ begin
     SI := Default(TStartupInfo);
     SI.cb := SizeOf(TStartupInfo);
     SI.dwFlags := STARTF_USESHOWWINDOW;
-    SI.wShowWindow := SW_SHOWNORMAL;
+    SI.wShowWindow := SW_HIDE;
     PI := Default(TProcessInformation);
     C := AProgram;
     if Length(AArgs) > 0 then
