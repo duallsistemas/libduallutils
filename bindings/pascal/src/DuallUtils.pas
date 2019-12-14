@@ -106,20 +106,22 @@ end;
 function BuildEnvBlock(const AArray: array of string): TBytes;
 var
   M: TBytesStream;
-  B: TBytes;
   S: string;
+  C: Char;
 begin
   M := TBytesStream.Create;
   try
-    B := TBytes.Create(0);
+    C := #0;
     for S in AArray do
     begin
+{$IFDEF FPC}
+      M.Write(S[1], Length(S));
+{$ELSE}
       M.Write(TEncoding.Unicode.GetBytes(S), TEncoding.Unicode.GetByteCount(S));
-      M.Write(B, 1);
-      M.Write(B, 1);
+{$ENDIF}
+      M.Write(C, SizeOf(Char));
     end;
-    M.Write(B, 1);
-    M.Write(B, 1);
+    M.Write(C, SizeOf(Char));
     Result := M.Bytes;
     SetLength(Result, M.Size);
   finally
@@ -203,11 +205,12 @@ class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
   AWaiting: Boolean; out AExitCode: Integer): Boolean;
 var
 {$IFDEF MSWINDOWS}
-  SI: TStartupInfoW;
+  SI: TStartupInfo;
   PI: TProcessInformation;
   C: string;
-  W: PWideChar;
+  W: PChar;
   B: TBytes;
+  F: DWORD;
 {$ENDIF}
   M: TMarshaller;
   A, E: TArray<Pcchar>;
@@ -217,24 +220,25 @@ begin
 {$IFDEF MSWINDOWS}
   if AHidden then
   begin
-    SI := Default(TStartupInfoW);
-    SI.cb := SizeOf(TStartupInfoW);
+    SI := Default(TStartupInfo);
+    SI.cb := SizeOf(TStartupInfo);
     SI.dwFlags := STARTF_USESHOWWINDOW;
-    SI.wShowWindow := SW_HIDE;
+    SI.wShowWindow := SW_SHOWNORMAL;
+    PI := Default(TProcessInformation);
     C := AProgram;
     if Length(AArgs) > 0 then
       C := Concat(AProgram, ' ', ArrayToString(' ', AArgs));
     if AWorkDir.IsEmpty then
       W := nil
     else
-      W := PWideChar(AWorkDir + #0);
+      W := PChar(AWorkDir + #0);
     if Length(AEnvs) > 0 then
       B := BuildEnvBlock(AEnvs)
     else
       B := nil;
-    if CreateProcessW(nil, PWideChar(C + #0), nil, nil, False,
-      CREATE_NEW_CONSOLE or CREATE_UNICODE_ENVIRONMENT or NORMAL_PRIORITY_CLASS,
-      M.AsRaw(B).ToPointer, W, SI, PI) then
+    F := CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS
+{$IFNDEF FPC}or CREATE_UNICODE_ENVIRONMENT{$ENDIF};
+    if CreateProcess(nil, PChar(C + #0), nil, nil, False, F, B, W, SI, PI) then
     try
       if WaitForSingleObject(PI.hProcess, INFINITE) <> WAIT_FAILED then
         Exit(True);
