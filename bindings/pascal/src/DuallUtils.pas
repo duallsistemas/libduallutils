@@ -242,7 +242,11 @@ begin
     if CreateProcess(nil, PChar(C + #0), nil, nil, False, F, B, W, SI, PI) then
     try
       if WaitForSingleObject(PI.hProcess, INFINITE) <> WAIT_FAILED then
+      begin
+        AExitCode := 0;
+        GetExitCodeProcess(PI.hProcess, DWORD(AExitCode));
         Exit(True);
+      end;
     finally
       CloseHandle(PI.hProcess);
       CloseHandle(PI.hThread);

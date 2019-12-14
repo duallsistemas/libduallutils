@@ -61,7 +61,8 @@ var
   O: Integer;
 begin
   Assert(not dUtils.Spawn('blah blah', []));
-  Assert(dUtils.Spawn('echo', '', [], [], True, O));
+  Assert(dUtils.Spawn('echo', '', [], [],
+{$IFDEF MSWINDOWS}True,{$ENDIF}True, O));
   Assert(O = 0);
 end;
 
