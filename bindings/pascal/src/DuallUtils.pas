@@ -58,7 +58,7 @@ type
       out AExitCode: Integer): Boolean; overload; static;
     class function Execute(const AProgram: TFileName; const AArgs: array of string;
       out AOutput: string): Boolean; overload; static;
-    class function Open(const AFileName: TFileName): Boolean; static;
+    class procedure Open(const AFileName: TFileName); static;
   end;
 
 implementation
@@ -313,17 +313,15 @@ begin
     AOutput := E;
 end;
 
-class function dUtils.Open(const AFileName: TFileName): Boolean;
+class procedure dUtils.Open(const AFileName: TFileName);
 var
   M: TMarshaller;
 begin
   libduallutils.Check;
   case libduallutils.du_open(M.ToCString(AFileName)) of
     -1: RaiseInvalidFunctionArgument;
-    -2: Exit(False);
-    -3: RaiseUnknownErrorInFunction('dUtils.Open');
+    -2: RaiseUnknownErrorInFunction('dUtils.Open');
   end;
-  Result := True;
 end;
 
 end.
