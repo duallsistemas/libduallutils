@@ -80,6 +80,11 @@ begin
   Assert(C = 0);
 end;
 
+procedure TestOpen;
+begin
+  Assert(not dUtils.Open('blah blah'));
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
@@ -89,6 +94,7 @@ begin
   TestSHA1File;
   TestSpawn;
   TestExecute;
+  TestOpen;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');

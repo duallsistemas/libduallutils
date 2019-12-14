@@ -89,6 +89,7 @@ var
   du_execute: function(const &program: Pcchar; const workdir: Pcchar;
     const args: PPcchar; const envs: PPcchar; output: PPcchar;
     error: PPcchar; exitcode: Pcint): cint; cdecl;
+  du_open: function(const filename: Pcchar): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 
@@ -125,6 +126,7 @@ begin
     du_sha1_file := GetProcAddress(GLibHandle, 'du_sha1_file');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
     du_execute := GetProcAddress(GLibHandle, 'du_execute');
+    du_open := GetProcAddress(GLibHandle, 'du_open');
     Result := True;
   finally
     GCS.Release;
@@ -159,6 +161,7 @@ begin
     du_sha1_file := nil;
     du_spawn := nil;
     du_execute := nil;
+    du_open := nil;
   finally
     GCS.Release;
   end;

@@ -58,6 +58,7 @@ type
       out AExitCode: Integer): Boolean; overload; static;
     class function Execute(const AProgram: TFileName; const AArgs: array of string;
       out AOutput: string): Boolean; overload; static;
+    class function Open(const AFileName: TFileName): Boolean; static;
   end;
 
 implementation
@@ -268,7 +269,8 @@ class function dUtils.Spawn(const AProgram: TFileName;
 var
   O: Integer;
 begin
-  Result := dUtils.Spawn(AProgram, '', AArgs, [], AHidden, AWaiting, O);
+  Result := dUtils.Spawn(AProgram, '', AArgs, [],
+{$IFDEF MSWINDOWS}AHidden,{$ENDIF} AWaiting, O);
 end;
 
 class function dUtils.Execute(const AProgram: TFileName; const AWorkDir: string;
@@ -305,6 +307,19 @@ begin
   Result := dUtils.Execute(AProgram, '', AArgs, [], AOutput, E, C);
   if AOutput.IsEmpty and not E.IsEmpty then
     AOutput := E;
+end;
+
+class function dUtils.Open(const AFileName: TFileName): Boolean;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  case libduallutils.du_open(M.ToCString(AFileName)) of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.Open');
+  end;
+  Result := True;
 end;
 
 end.
