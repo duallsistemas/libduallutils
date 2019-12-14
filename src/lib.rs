@@ -2,10 +2,12 @@ use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
+use opener;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::ptr;
 
@@ -323,6 +325,33 @@ pub unsafe extern "C" fn du_execute(
     0
 }
 
+/// Opens a file or link with the system default program.
+///
+/// # Arguments
+///
+/// * `[in] path` - File or link as C-like string.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - File not found.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_open(path: *const c_char) -> c_int {
+    if path.is_null() {
+        return -1;
+    }
+    let p = from_c_str!(path).unwrap();
+    if !Path::new(p).exists() {
+        return -2;
+    }
+    match opener::open(p) {
+        Ok(_) => 0,
+        Err(_) => -3,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -583,6 +612,14 @@ mod tests {
             CString::from_raw(args[0] as *mut c_char);
             assert_eq!(code, 0);
             assert_eq!(from_c_str!(output).unwrap().trim(), "My test");
+        }
+    }
+
+    #[test]
+    fn open() {
+        unsafe {
+            assert_eq!(du_open(ptr::null()), -1);
+            assert_eq!(du_open(to_c_str!("blah blah").unwrap().as_ptr()), -2);
         }
     }
 }
