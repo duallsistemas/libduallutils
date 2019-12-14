@@ -7,7 +7,6 @@ use std::ffi::CString;
 use std::fs::File;
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
-use std::path::Path;
 use std::process::{Command, Stdio};
 use std::ptr;
 
