@@ -12,6 +12,10 @@ unit DuallUtils;
 interface
 
 uses
+{$IFDEF MSWINDOWS}
+  Windows,
+  Classes,
+{$ENDIF}
   SysUtils,
   Marshalling,
   libduallutils;
@@ -22,7 +26,7 @@ const
 
 resourcestring
   SInvalidFunctionArgument = 'Invalid function argument.';
-  SUnknownLibraryError = 'Unknown library error.';
+  SUnknownErrorInFunction = 'Unknown error in function: %s.';
 
 type
 
@@ -44,9 +48,10 @@ type
     class function SHA1(const S: string): string; static;
     class function SHA1File(const AFileName: TFileName): string; static;
     class function Spawn(const AProgram: TFileName; const AWorkDir: string;
-      const AArgs, AEnvs: array of string; AWaiting: Boolean;
-      out AExitCode: Integer): Boolean; overload; static;
+      const AArgs, AEnvs: array of string; {$IFDEF MSWINDOWS}AHidden,{$ENDIF}
+      AWaiting: Boolean; out AExitCode: Integer): Boolean; overload; static;
     class function Spawn(const AProgram: TFileName; const AArgs: array of string;
+      {$IFDEF MSWINDOWS}AHidden: Boolean = False;{$ENDIF}
       AWaiting: Boolean = False): Boolean; overload; static;
     class function Execute(const AProgram: TFileName; const AWorkDir: string;
       const AArgs, AEnvs: array of string; out AOutput, AError: string;
@@ -62,9 +67,9 @@ begin
   raise EdUtils.Create(SInvalidFunctionArgument);
 end;
 
-procedure RaiseUnknownLibraryError; inline;
+procedure RaiseUnknownErrorInFunction(const AFuncName: string); inline;
 begin
-  raise EdUtils.Create(SUnknownLibraryError);
+  raise EdUtils.CreateFmt(SUnknownErrorInFunction, [AFuncName]);
 end;
 
 function ArrayToCArray(const AArray: array of string;
@@ -82,6 +87,47 @@ begin
   AOutput[Length(AArray)] := nil;
   Result := @AOutput[0];
 end;
+
+{$IFDEF MSWINDOWS}
+
+function ArrayToString(const ASeparator: string;
+  const AArray: array of string): string;
+var
+  I, L: Integer;
+begin
+  L := Length(AArray);
+  if L = 0 then
+    Exit(EmptyStr);
+  Result := AArray[0];
+  for I := 1 to Pred(L) do
+    Result := Concat(Result, ASeparator, AArray[I]);
+end;
+
+function BuildEnvBlock(const AArray: array of string): TBytes;
+var
+  M: TBytesStream;
+  B: TBytes;
+  S: string;
+begin
+  M := TBytesStream.Create;
+  try
+    B := TBytes.Create(0);
+    for S in AArray do
+    begin
+      M.Write(TEncoding.Unicode.GetBytes(S), TEncoding.Unicode.GetByteCount(S));
+      M.Write(B, 1);
+      M.Write(B, 1);
+    end;
+    M.Write(B, 1);
+    M.Write(B, 1);
+    Result := M.Bytes;
+    SetLength(Result, M.Size);
+  finally
+    M.Destroy;
+  end;
+end;
+
+{$ENDIF}
 
 { dUtils }
 
@@ -153,31 +199,72 @@ begin
 end;
 
 class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
-  const AArgs, AEnvs: array of string; AWaiting: Boolean;
-  out AExitCode: Integer): Boolean;
+  const AArgs, AEnvs: array of string; {$IFDEF MSWINDOWS}AHidden,{$ENDIF}
+  AWaiting: Boolean; out AExitCode: Integer): Boolean;
 var
+{$IFDEF MSWINDOWS}
+  SI: TStartupInfoW;
+  PI: TProcessInformation;
+  C: string;
+  W: PWideChar;
+  B: TBytes;
+{$ENDIF}
   M: TMarshaller;
   A, E: TArray<Pcchar>;
   R: cint;
 begin
   libduallutils.Check;
+{$IFDEF MSWINDOWS}
+  if AHidden then
+  begin
+    SI := Default(TStartupInfoW);
+    SI.cb := SizeOf(TStartupInfoW);
+    SI.dwFlags := STARTF_USESHOWWINDOW;
+    SI.wShowWindow := SW_HIDE;
+    C := AProgram;
+    if Length(AArgs) > 0 then
+      C := Concat(AProgram, ' ', ArrayToString(' ', AArgs));
+    if AWorkDir.IsEmpty then
+      W := nil
+    else
+      W := PWideChar(AWorkDir + #0);
+    if Length(AEnvs) > 0 then
+      B := BuildEnvBlock(AEnvs)
+    else
+      B := nil;
+    if CreateProcessW(nil, PWideChar(C + #0), nil, nil, False,
+      CREATE_NEW_CONSOLE or CREATE_UNICODE_ENVIRONMENT or NORMAL_PRIORITY_CLASS,
+      M.AsRaw(B).ToPointer, W, SI, PI) then
+    try
+      if WaitForSingleObject(PI.hProcess, INFINITE) <> WAIT_FAILED then
+        Exit(True);
+    finally
+      CloseHandle(PI.hProcess);
+      CloseHandle(PI.hThread);
+    end;
+    if GetLastError = ERROR_FILE_NOT_FOUND then
+      Exit(False);
+    RaiseUnknownErrorInFunction('dUtils.Spawn');
+  end;
+{$ENDIF}
   R := libduallutils.du_spawn(M.ToCString(AProgram),
     M.ToCNullableString(AWorkDir), ArrayToCArray(AArgs, A),
     ArrayToCArray(AEnvs, E), AWaiting, @AExitCode);
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
-    -3: RaiseUnknownLibraryError;
+    -3: RaiseUnknownErrorInFunction('dUtils.Spawn');
   end;
   Result := True;
 end;
 
 class function dUtils.Spawn(const AProgram: TFileName;
-  const AArgs: array of string; AWaiting: Boolean): Boolean;
+  const AArgs: array of string; {$IFDEF MSWINDOWS}AHidden,{$ENDIF}
+  AWaiting: Boolean): Boolean;
 var
   O: Integer;
 begin
-  Result := dUtils.Spawn(AProgram, '', AArgs, [], AWaiting, O);
+  Result := dUtils.Spawn(AProgram, '', AArgs, [], AHidden, AWaiting, O);
 end;
 
 class function dUtils.Execute(const AProgram: TFileName; const AWorkDir: string;
@@ -196,7 +283,7 @@ begin
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
-    -3: RaiseUnknownLibraryError;
+    -3: RaiseUnknownErrorInFunction('dUtils.Execute');
   end;
   AOutput := TMarshal.ToString(SO);
   du_dispose(SO);
