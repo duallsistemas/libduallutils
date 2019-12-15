@@ -44,8 +44,12 @@ type
     class procedure Unload; static;
     class function Version: string; static;
     class function MD5(const S: string): string; static;
+    class function TryMD5File(const AFileName: TFileName;
+      out AMD5: string): Boolean; static;
     class function MD5File(const AFileName: TFileName): string; static;
     class function SHA1(const S: string): string; static;
+    class function TrySHA1File(const AFileName: TFileName;
+      out ASHA1: string): Boolean; static;
     class function SHA1File(const AFileName: TFileName): string; static;
     class function Spawn(const AProgram: TFileName; const AWorkDir: string;
       const AArgs, AEnvs: array of string; {$IFDEF MSWINDOWS}AHidden,{$ENDIF}
@@ -163,17 +167,29 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
-class function dUtils.MD5File(const AFileName: TFileName): string;
+class function dUtils.TryMD5File(const AFileName: TFileName;
+  out AMD5: string): Boolean;
 var
   M: TMarshaller;
   A: array[0..MD5_SIZE] of cchar;
+  R: cint;
 begin
   libduallutils.Check;
   A[0] := 0;
-  if libduallutils.du_md5_file(M.ToCString(AFileName),
-    @A[0], SizeOf(A)) = -1 then
-    RaiseInvalidFunctionArgument;
-  Result := TMarshal.ToString(@A[0]);
+  R := libduallutils.du_md5_file(M.ToCString(AFileName), @A[0], SizeOf(A));
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.MD5File');
+  end;
+  AMD5 := TMarshal.ToString(@A[0]);
+  Result := True;
+end;
+
+class function dUtils.MD5File(const AFileName: TFileName): string;
+begin
+  if not TryMD5File(AFileName, Result) then
+    Result := EmptyStr;
 end;
 
 class function dUtils.SHA1(const S: string): string;
@@ -188,17 +204,29 @@ begin
   Result := TMarshal.ToString(@A[0]);
 end;
 
-class function dUtils.SHA1File(const AFileName: TFileName): string;
+class function dUtils.TrySHA1File(const AFileName: TFileName;
+  out ASHA1: string): Boolean;
 var
   M: TMarshaller;
   A: array[0..SHA1_SIZE] of cchar;
+  R: cint;
 begin
   libduallutils.Check;
   A[0] := 0;
-  if libduallutils.du_sha1_file(M.ToCString(AFileName),
-    @A[0], SizeOf(A)) = -1 then
-    RaiseInvalidFunctionArgument;
-  Result := TMarshal.ToString(@A[0]);
+  R := libduallutils.du_sha1_file(M.ToCString(AFileName), @A[0], SizeOf(A));
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.SHA1File');
+  end;
+  ASHA1 := TMarshal.ToString(@A[0]);
+  Result := True;
+end;
+
+class function dUtils.SHA1File(const AFileName: TFileName): string;
+begin
+  if not TrySHA1File(AFileName, Result) then
+    Result := EmptyStr;
 end;
 
 class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;

@@ -20,7 +20,25 @@ end;
 
 procedure TestMD5;
 begin
-  Assert(dUtils.MD5('abc123') = 'e99a18c428cb38d5f260853678922e03');
+  Assert(dUtils.MD5('abc123').Equals('e99a18c428cb38d5f260853678922e03'));
+end;
+
+procedure TestTryMD5File;
+var
+  F: TBytesStream;
+  O: string;
+begin
+  Assert(not dUtils.TryMD5File('blah blah', O));
+  Assert(O.IsEmpty);
+  F := TBytesStream.Create(BytesOf('abc123'));
+  try
+    F.SaveToFile('abc123.txt');
+    Assert(dUtils.TryMD5File('abc123.txt', O));
+    Assert(O.Equals('e99a18c428cb38d5f260853678922e03'));
+    DeleteFile('abc123.txt');
+  finally
+    F.Destroy;
+  end;
 end;
 
 procedure TestMD5File;
@@ -30,7 +48,7 @@ begin
   F := TBytesStream.Create(BytesOf('abc123'));
   try
     F.SaveToFile('abc123.txt');
-    Assert(dUtils.MD5File('abc123.txt') = 'e99a18c428cb38d5f260853678922e03');
+    Assert(dUtils.MD5File('abc123.txt').Equals('e99a18c428cb38d5f260853678922e03'));
     DeleteFile('abc123.txt');
   finally
     F.Destroy;
@@ -39,7 +57,25 @@ end;
 
 procedure TestSHA1;
 begin
-  Assert(dUtils.SHA1('abc123') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
+  Assert(dUtils.SHA1('abc123').Equals('6367c48dd193d56ea7b0baad25b19455e529f5ee'));
+end;
+
+procedure TestTrySHA1File;
+var
+  F: TBytesStream;
+  O: string;
+begin
+  Assert(not dUtils.TrySHA1File('blah blah', O));
+  Assert(O.IsEmpty);
+  F := TBytesStream.Create(BytesOf('abc123'));
+  try
+    F.SaveToFile('abc123.txt');
+    Assert(dUtils.TrySHA1File('abc123.txt', O));
+    Assert(O.Equals('6367c48dd193d56ea7b0baad25b19455e529f5ee'));
+    DeleteFile('abc123.txt');
+  finally
+    F.Destroy;
+  end;
 end;
 
 procedure TestSHA1File;
@@ -49,7 +85,7 @@ begin
   F := TBytesStream.Create(BytesOf('abc123'));
   try
     F.SaveToFile('abc123.txt');
-    Assert(dUtils.SHA1File('abc123.txt') = '6367c48dd193d56ea7b0baad25b19455e529f5ee');
+    Assert(dUtils.SHA1File('abc123.txt').Equals('6367c48dd193d56ea7b0baad25b19455e529f5ee'));
     DeleteFile('abc123.txt');
   finally
     F.Destroy;
@@ -85,8 +121,10 @@ begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
   TestMD5;
+  TestTryMD5File;
   TestMD5File;
   TestSHA1;
+  TestTrySHA1File;
   TestSHA1File;
   TestSpawn;
   TestExecute;
