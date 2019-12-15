@@ -27,6 +27,7 @@ const
 resourcestring
   SInvalidFunctionArgument = 'Invalid function argument.';
   SUnknownErrorInFunction = 'Unknown error in function: %s.';
+  SFileNotFound = 'File not found: %s.';
 
 type
 
@@ -189,7 +190,7 @@ end;
 class function dUtils.MD5File(const AFileName: TFileName): string;
 begin
   if not TryMD5File(AFileName, Result) then
-    Result := EmptyStr;
+    raise EFileNotFoundException.CreateFmt(SFileNotFound, [AFileName]);
 end;
 
 class function dUtils.SHA1(const S: string): string;
@@ -226,7 +227,7 @@ end;
 class function dUtils.SHA1File(const AFileName: TFileName): string;
 begin
   if not TrySHA1File(AFileName, Result) then
-    Result := EmptyStr;
+    raise EFileNotFoundException.CreateFmt(SFileNotFound, [AFileName]);
 end;
 
 class function dUtils.Spawn(const AProgram: TFileName; const AWorkDir: string;
