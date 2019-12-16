@@ -67,8 +67,7 @@ type
     class function Execute(const AProgram: TFileName; const AArgs: array of string;
       out AOutput: string): Boolean; overload; static;
     class procedure Open(const AFileName: TFileName); static;
-    class function Once(const AIdent: string): Boolean; overload; static;
-    class function Once: Boolean; overload; static;
+    class function Once(const AIdent: string): Boolean; static;
   end;
 
 implementation
@@ -363,19 +362,14 @@ var
   M: TMarshaller;
 begin
   libduallutils.Check;
-  case libduallutils.du_once(M.ToCNullableString(AIdent)) of
+  case libduallutils.du_once(M.ToCNullableString(Concat(
+{$IFDEF FPC}GetTempDir{$ELSE}TPath.GetTempPath{$ENDIF}, '.',
+    ChangeFileExt(AIdent, '-lock')))) of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
     -3: RaiseUnknownErrorInFunction('dUtils.Once');
   end;
   Result := True;
-end;
-
-class function dUtils.Once: Boolean;
-begin
-  Result := dUtils.Once(Concat(
-{$IFDEF FPC}GetTempDir{$ELSE}TPath.GetTempPath{$ENDIF}, '.',
-    ChangeFileExt(ExtractFileName(ParamStr(0)), '-lock')));
 end;
 
 end.

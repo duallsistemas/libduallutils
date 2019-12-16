@@ -119,8 +119,8 @@ end;
 
 procedure TestOnce;
 begin
-  Assert(dUtils.Once);
-  Assert(not dUtils.Once);
+  Assert(dUtils.Once('myinstance'));
+  Assert(not dUtils.Once('myinstance'));
 end;
 
 begin
