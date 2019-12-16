@@ -1,6 +1,6 @@
 [package]
 name = "duallutils"
-version = "1.4.1"
+version = "1.5.0"
 authors = ["silvioprog <silvioprog@gmail.com>"]
 edition = "2018"
 
@@ -14,3 +14,4 @@ lto = true
 libc = "0.2.66"
 rust-crypto = "0.2.36"
 opener = "0.4.1"
+single-instance = "0.1.1"

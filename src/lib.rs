@@ -3,6 +3,7 @@ use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
 use opener;
+use single_instance::SingleInstance;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::ErrorKind::NotFound;
@@ -346,6 +347,42 @@ pub unsafe extern "C" fn du_open(path: *const c_char) -> c_int {
     }
 }
 
+/// Checks if there are any other running instance.
+///
+/// # Arguments
+///
+/// * `[in] identifier` - Unique path/name as C-like string to identify the instance.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - Already running.
+/// * `-3` - Unknown error.
+#[no_mangle]
+pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
+    if identifier.is_null() {
+        return -1;
+    }
+    match SingleInstance::new(from_c_str!(identifier).unwrap()) {
+        Ok(instance) => {
+            static mut RUNNING_INSTANCE: Option<SingleInstance> = None;
+            RUNNING_INSTANCE = Some(instance);
+            match RUNNING_INSTANCE {
+                Some(ref instance) => {
+                    if instance.is_single() {
+                        0
+                    } else {
+                        -2
+                    }
+                }
+                None => -3,
+            }
+        }
+        Err(_) => -3,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -614,6 +651,19 @@ mod tests {
         unsafe {
             assert_eq!(du_open(ptr::null()), -1);
             assert_eq!(du_open(to_c_str!("blah blah").unwrap().as_ptr()), -2);
+        }
+    }
+
+    #[test]
+    fn once() {
+        unsafe {
+            #[cfg(not(target_os = "windows"))]
+            let ident = format!("{}/.libduallutils-lock", std::env::temp_dir().display());
+            #[cfg(target_os = "windows")]
+            let ident = "libduallutils";
+            assert_eq!(du_once(ptr::null()), -1);
+            assert_eq!(du_once(to_c_str!(ident.to_owned()).unwrap().as_ptr()), 0);
+            assert_eq!(du_once(to_c_str!(ident).unwrap().as_ptr()), -2);
         }
     }
 }
