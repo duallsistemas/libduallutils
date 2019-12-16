@@ -17,6 +17,9 @@ uses
   Classes,
 {$ENDIF}
   SysUtils,
+{$IFNDEF FPC}
+  IOUtils,
+{$ENDIF}
   Marshalling,
   libduallutils;
 
@@ -64,6 +67,8 @@ type
     class function Execute(const AProgram: TFileName; const AArgs: array of string;
       out AOutput: string): Boolean; overload; static;
     class procedure Open(const AFileName: TFileName); static;
+    class function Once(const AIdent: string): Boolean; overload; static;
+    class function Once: Boolean; overload; static;
   end;
 
 implementation
@@ -351,6 +356,26 @@ begin
     -1: RaiseInvalidFunctionArgument;
     -2: RaiseUnknownErrorInFunction('dUtils.Open');
   end;
+end;
+
+class function dUtils.Once(const AIdent: string): Boolean;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  case libduallutils.du_once(M.ToCNullableString(AIdent)) of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.Once');
+  end;
+  Result := True;
+end;
+
+class function dUtils.Once: Boolean;
+begin
+  Result := dUtils.Once(Concat(
+{$IFDEF FPC}GetTempDir{$ELSE}TPath.GetTempPath{$ENDIF}, '.',
+    ChangeFileExt(ExtractFileName(ParamStr(0)), '-lock')));
 end;
 
 end.

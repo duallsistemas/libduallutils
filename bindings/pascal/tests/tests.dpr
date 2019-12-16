@@ -117,6 +117,12 @@ begin
   Assert(C = 0);
 end;
 
+procedure TestOnce;
+begin
+  Assert(dUtils.Once);
+  Assert(not dUtils.Once);
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
@@ -129,6 +135,7 @@ begin
   TestSpawn;
   TestExecute;
   // TestOpen
+  TestOnce;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');
