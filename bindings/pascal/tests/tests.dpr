@@ -136,6 +136,8 @@ begin
   TestExecute;
   // TestOpen
   TestOnce;
+  // TestShutdown
+  // TestReboot
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');

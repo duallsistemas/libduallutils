@@ -91,6 +91,8 @@ var
     error: PPcchar; exitcode: Pcint): cint; cdecl;
   du_open: function(const filename: Pcchar): cint; cdecl;
   du_once: function(const ident: Pcchar): cint; cdecl;
+  du_shutdown: procedure(forced: cbool); cdecl;
+  du_reboot: procedure(forced: cbool); cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 
@@ -129,6 +131,8 @@ begin
     du_execute := GetProcAddress(GLibHandle, 'du_execute');
     du_open := GetProcAddress(GLibHandle, 'du_open');
     du_once := GetProcAddress(GLibHandle, 'du_once');
+    du_shutdown := GetProcAddress(GLibHandle, 'du_shutdown');
+    du_reboot := GetProcAddress(GLibHandle, 'du_reboot');
     Result := True;
   finally
     GCS.Release;
@@ -165,6 +169,8 @@ begin
     du_execute := nil;
     du_open := nil;
     du_once := nil;
+    du_shutdown := nil;
+    du_reboot := nil;
   finally
     GCS.Release;
   end;

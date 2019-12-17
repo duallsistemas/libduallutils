@@ -68,6 +68,8 @@ type
       out AOutput: string): Boolean; overload; static;
     class procedure Open(const AFileName: TFileName); static;
     class function Once(const AIdent: string): Boolean; static;
+    class procedure Shutdown(AForced: Boolean = True); static;
+    class procedure Reboot(AForced: Boolean = True); static;
   end;
 
 implementation
@@ -370,6 +372,18 @@ begin
     -3: RaiseUnknownErrorInFunction('dUtils.Once');
   end;
   Result := True;
+end;
+
+class procedure dUtils.Shutdown(AForced: Boolean);
+begin
+  libduallutils.Check;
+  libduallutils.du_shutdown(AForced);
+end;
+
+class procedure dUtils.Reboot(AForced: Boolean);
+begin
+  libduallutils.Check;
+  libduallutils.du_reboot(AForced);
 end;
 
 end.
