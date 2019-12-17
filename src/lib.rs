@@ -388,20 +388,52 @@ pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
 ///
 /// # Arguments
 ///
-/// [in] forced - Forces the machine to shut down instantly without confirmations.
+/// * `[in] forced` - Forces the machine to shut down instantly without confirmations.
+/// * `[in] os_code` - Error code returned by the OS when the function fails.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - OS error.
 #[no_mangle]
-pub unsafe extern "C" fn du_shutdown(forced: bool) {
-    shutdown(forced);
+pub unsafe extern "C" fn du_shutdown(forced: bool, os_code: *mut c_int) -> c_int {
+    if os_code.is_null() {
+        return -1;
+    }
+    match shutdown(forced) {
+        None => 0,
+        Some(code) => {
+            *os_code = code;
+            -2
+        }
+    }
 }
 
 /// Calls the OS-specific function to reboot the machine.
 ///
 /// # Arguments
 ///
-/// [in] forced - Forces the machine to reboot instantly without confirmations.
+/// * `[in] forced` - Forces the machine to reboot instantly without confirmations.
+/// * `[in] os_code` - Error code returned by the OS when the function fails.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - OS error.
 #[no_mangle]
-pub unsafe extern "C" fn du_reboot(forced: bool) {
-    reboot(forced);
+pub unsafe extern "C" fn du_reboot(forced: bool, os_code: *mut c_int) -> c_int {
+    if os_code.is_null() {
+        return -1;
+    }
+    match reboot(forced) {
+        None => 0,
+        Some(code) => {
+            *os_code = code;
+            -2
+        }
+    }
 }
 
 #[cfg(test)]
@@ -685,6 +717,20 @@ mod tests {
             assert_eq!(du_once(ptr::null()), -1);
             assert_eq!(du_once(to_c_str!(ident.to_owned()).unwrap().as_ptr()), 0);
             assert_eq!(du_once(to_c_str!(ident).unwrap().as_ptr()), -2);
+        }
+    }
+
+    #[test]
+    fn shutdown() {
+        unsafe {
+            assert_eq!(du_shutdown(true, ptr::null_mut()), -1);
+        }
+    }
+
+    #[test]
+    fn reboot() {
+        unsafe {
+            assert_eq!(du_reboot(true, ptr::null_mut()), -1);
         }
     }
 }
