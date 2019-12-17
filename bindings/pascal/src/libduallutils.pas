@@ -91,8 +91,8 @@ var
     error: PPcchar; exitcode: Pcint): cint; cdecl;
   du_open: function(const filename: Pcchar): cint; cdecl;
   du_once: function(const ident: Pcchar): cint; cdecl;
-  du_shutdown: procedure(forced: cbool); cdecl;
-  du_reboot: procedure(forced: cbool); cdecl;
+  du_shutdown: function(forced: cbool; os_code: Pcint): cint; cdecl;
+  du_reboot: function(forced: cbool; os_code: Pcint): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 

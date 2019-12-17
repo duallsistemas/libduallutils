@@ -68,6 +68,10 @@ type
       out AOutput: string): Boolean; overload; static;
     class procedure Open(const AFileName: TFileName); static;
     class function Once(const AIdent: string): Boolean; static;
+    class function TryShutdown(AForced: Boolean;
+      out AError: string): Boolean; static;
+    class function TryReboot(AForced: Boolean;
+      out AError: string): Boolean; static;
     class procedure Shutdown(AForced: Boolean = True); static;
     class procedure Reboot(AForced: Boolean = True); static;
   end;
@@ -374,16 +378,50 @@ begin
   Result := True;
 end;
 
-class procedure dUtils.Shutdown(AForced: Boolean);
+class function dUtils.TryShutdown(AForced: Boolean;
+  out AError: string): Boolean;
+var
+  R, C: cint;
 begin
   libduallutils.Check;
-  libduallutils.du_shutdown(AForced);
+  R := libduallutils.du_shutdown(AForced, @C);
+  case R of
+    0: Exit(True);
+    -1: RaiseInvalidFunctionArgument;
+    -2: AError := SysErrorMessage(C);
+  end;
+  Result := False;
+end;
+
+class function dUtils.TryReboot(AForced: Boolean;
+  out AError: string): Boolean;
+var
+  R, C: cint;
+begin
+  libduallutils.Check;
+  R := libduallutils.du_reboot(AForced, @C);
+  case R of
+    0: Exit(True);
+    -1: RaiseInvalidFunctionArgument;
+    -2: AError := SysErrorMessage(C);
+  end;
+  Result := False;
+end;
+
+class procedure dUtils.Shutdown(AForced: Boolean);
+var
+  E: string;
+begin
+  if not TryShutdown(AForced, E) then
+    raise EOSError.Create(E);
 end;
 
 class procedure dUtils.Reboot(AForced: Boolean);
+var
+  E: string;
 begin
-  libduallutils.Check;
-  libduallutils.du_reboot(AForced);
+  if not TryReboot(AForced, E) then
+    raise EOSError.Create(E);
 end;
 
 end.

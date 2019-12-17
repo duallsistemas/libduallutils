@@ -136,6 +136,8 @@ begin
   TestExecute;
   // TestOpen
   TestOnce;
+  // TestTryShutdown
+  // TestTryReboot
   // TestShutdown
   // TestReboot
   Writeln('All tests passed!');
