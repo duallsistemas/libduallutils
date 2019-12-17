@@ -10,6 +10,7 @@ use std::io::ErrorKind::NotFound;
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::ptr;
+use system_shutdown::{reboot, shutdown};
 
 mod utils;
 
@@ -381,6 +382,26 @@ pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
         }
         Err(_) => -3,
     }
+}
+
+/// Calls the OS-specific function to shut down the machine.
+///
+/// # Arguments
+///
+/// [in] forced - Forces the machine to shut down instantly without confirmations.
+#[no_mangle]
+pub unsafe extern "C" fn du_shutdown(forced: bool) {
+    shutdown(forced);
+}
+
+/// Calls the OS-specific function to reboot the machine.
+///
+/// # Arguments
+///
+/// [in] forced - Forces the machine to reboot instantly without confirmations.
+#[no_mangle]
+pub unsafe extern "C" fn du_reboot(forced: bool) {
+    reboot(forced);
 }
 
 #[cfg(test)]
