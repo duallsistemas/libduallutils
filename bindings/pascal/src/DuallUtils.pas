@@ -368,9 +368,24 @@ var
   M: TMarshaller;
 begin
   libduallutils.Check;
-  case libduallutils.du_once(M.ToCNullableString(Concat(
-{$IFDEF FPC}GetTempDir{$ELSE}TPath.GetTempPath{$ENDIF}, '.',
-    ChangeFileExt(AIdent, '-lock')))) of
+  case libduallutils.du_once(M.ToCNullableString(
+{$IFNDEF MSWINDOWS}
+    Concat(
+{$IFDEF FPC}
+      GetTempDir
+{$ELSE}
+      TPath.GetTempPath
+{$ENDIF}
+      , '.',
+      ChangeFileExt(
+{$ENDIF}
+        AIdent
+{$IFNDEF MSWINDOWS}
+        , '-lock'
+      )
+    )
+{$ENDIF}
+  )) of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);
     -3: RaiseUnknownErrorInFunction('dUtils.Once');
