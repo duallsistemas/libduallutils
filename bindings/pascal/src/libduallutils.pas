@@ -93,6 +93,7 @@ var
   du_once: function(const ident: Pcchar): cint; cdecl;
   du_shutdown: function(forced: cbool; os_code: Pcint): cint; cdecl;
   du_reboot: function(forced: cbool; os_code: Pcint): cint; cdecl;
+  du_logout: function(forced: cbool; os_code: Pcint): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 
@@ -133,6 +134,7 @@ begin
     du_once := GetProcAddress(GLibHandle, 'du_once');
     du_shutdown := GetProcAddress(GLibHandle, 'du_shutdown');
     du_reboot := GetProcAddress(GLibHandle, 'du_reboot');
+    du_logout := GetProcAddress(GLibHandle, 'du_logout');
     Result := True;
   finally
     GCS.Release;
@@ -171,6 +173,7 @@ begin
     du_once := nil;
     du_shutdown := nil;
     du_reboot := nil;
+    du_logout := nil;
   finally
     GCS.Release;
   end;

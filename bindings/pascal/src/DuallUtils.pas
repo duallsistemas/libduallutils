@@ -72,8 +72,11 @@ type
       out AError: string): Boolean; static;
     class function TryReboot(AForced: Boolean;
       out AError: string): Boolean; static;
+    class function TryLogout(AForced: Boolean;
+      out AError: string): Boolean; static;
     class procedure Shutdown(AForced: Boolean = True); static;
     class procedure Reboot(AForced: Boolean = True); static;
+    class procedure Logout(AForced: Boolean = True); static;
   end;
 
 implementation
@@ -423,6 +426,20 @@ begin
   Result := False;
 end;
 
+class function dUtils.TryLogout(AForced: Boolean; out AError: string): Boolean;
+var
+  R, C: cint;
+begin
+  libduallutils.Check;
+  R := libduallutils.du_logout(AForced, @C);
+  case R of
+    0: Exit(True);
+    -1: RaiseInvalidFunctionArgument;
+    -2: AError := SysErrorMessage(C);
+  end;
+  Result := False;
+end;
+
 class procedure dUtils.Shutdown(AForced: Boolean);
 var
   E: string;
@@ -436,6 +453,14 @@ var
   E: string;
 begin
   if not TryReboot(AForced, E) then
+    raise EOSError.Create(E);
+end;
+
+class procedure dUtils.Logout(AForced: Boolean);
+var
+  E: string;
+begin
+  if not TryLogout(AForced, E) then
     raise EOSError.Create(E);
 end;
 
