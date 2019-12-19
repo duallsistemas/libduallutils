@@ -57,6 +57,9 @@ type
   TLibHandle = HMODULE;
 {$ENDIF}
 
+const
+  DU_ERR_SIZE = 256;
+
 resourcestring
   SduLibEmptyName = 'Empty library name.';
   SduLibNotLoaded = 'Library ''%s'' not loaded.';
@@ -91,9 +94,12 @@ var
     error: PPcchar; exitcode: Pcint): cint; cdecl;
   du_open: function(const filename: Pcchar): cint; cdecl;
   du_once: function(const ident: Pcchar): cint; cdecl;
-  du_shutdown: function(forced: cbool; os_code: Pcint): cint; cdecl;
-  du_reboot: function(forced: cbool; os_code: Pcint): cint; cdecl;
-  du_logout: function(forced: cbool; os_code: Pcint): cint; cdecl;
+  du_shutdown: function(forced: cbool; error_msg: Pcchar;
+    error_size: csize_t): cint; cdecl;
+  du_reboot: function(forced: cbool; error_msg: Pcchar;
+    error_size: csize_t): cint; cdecl;
+  du_logout: function(forced: cbool; error_msg: Pcchar;
+    error_size: csize_t): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 

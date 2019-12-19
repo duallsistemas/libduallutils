@@ -69,14 +69,14 @@ type
     class procedure Open(const AFileName: TFileName); static;
     class function Once(const AIdent: string): Boolean; static;
     class function TryShutdown(AForced: Boolean;
-      out AError: string): Boolean; static;
+      out AErrorMsg: string): Boolean; static;
     class function TryReboot(AForced: Boolean;
-      out AError: string): Boolean; static;
+      out AErrorMsg: string): Boolean; static;
     class function TryLogout(AForced: Boolean;
-      out AError: string): Boolean; static;
-    class procedure Shutdown(AForced: Boolean = True); static;
-    class procedure Reboot(AForced: Boolean = True); static;
-    class procedure Logout(AForced: Boolean = True); static;
+      out AErrorMsg: string): Boolean; static;
+    class procedure Shutdown(AForced: Boolean = False); static;
+    class procedure Reboot(AForced: Boolean = False); static;
+    class procedure Logout(AForced: Boolean = False); static;
   end;
 
 implementation
@@ -397,45 +397,50 @@ begin
 end;
 
 class function dUtils.TryShutdown(AForced: Boolean;
-  out AError: string): Boolean;
+  out AErrorMsg: string): Boolean;
 var
-  R, C: cint;
+  E: array[0..Pred(DU_ERR_SIZE)] of cchar;
+  R: cint;
 begin
   libduallutils.Check;
-  R := libduallutils.du_shutdown(AForced, @C);
+  E[0] := 0;
+  R := libduallutils.du_shutdown(AForced, @E[0], DU_ERR_SIZE);
   case R of
     0: Exit(True);
     -1: RaiseInvalidFunctionArgument;
-    -2: AError := SysErrorMessage(C);
+    -2: AErrorMsg := TMarshal.ToString(@E[0]);
   end;
   Result := False;
 end;
 
 class function dUtils.TryReboot(AForced: Boolean;
-  out AError: string): Boolean;
+  out AErrorMsg: string): Boolean;
 var
-  R, C: cint;
+  E: array[0..Pred(DU_ERR_SIZE)] of cchar;
+  R: cint;
 begin
   libduallutils.Check;
-  R := libduallutils.du_reboot(AForced, @C);
+  R := libduallutils.du_reboot(AForced, @E[0], DU_ERR_SIZE);
   case R of
     0: Exit(True);
     -1: RaiseInvalidFunctionArgument;
-    -2: AError := SysErrorMessage(C);
+    -2: AErrorMsg := TMarshal.ToString(@E[0]);
   end;
   Result := False;
 end;
 
-class function dUtils.TryLogout(AForced: Boolean; out AError: string): Boolean;
+class function dUtils.TryLogout(AForced: Boolean;
+  out AErrorMsg: string): Boolean;
 var
-  R, C: cint;
+  E: array[0..Pred(DU_ERR_SIZE)] of cchar;
+  R: cint;
 begin
   libduallutils.Check;
-  R := libduallutils.du_logout(AForced, @C);
+  R := libduallutils.du_logout(AForced, @E[0], DU_ERR_SIZE);
   case R of
     0: Exit(True);
     -1: RaiseInvalidFunctionArgument;
-    -2: AError := SysErrorMessage(C);
+    -2: AErrorMsg := TMarshal.ToString(@E[0]);
   end;
   Result := False;
 end;
