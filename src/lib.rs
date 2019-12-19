@@ -10,7 +10,7 @@ use std::io::ErrorKind::NotFound;
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::ptr;
-use system_shutdown::{reboot, shutdown};
+use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot, shutdown};
 
 mod utils;
 
@@ -101,8 +101,8 @@ pub unsafe extern "C" fn du_md5_file(
             let hash = to_c_str!(hasher.result_str()).unwrap();
             copy_c_str!(hash, md5, size);
         }
-        Err(e) => {
-            if e.kind() == NotFound {
+        Err(error) => {
+            if error.kind() == NotFound {
                 return -2;
             }
             return -3;
@@ -175,8 +175,8 @@ pub unsafe extern "C" fn du_sha1_file(
             let hash = to_c_str!(hasher.result_str()).unwrap();
             copy_c_str!(hash, sha1, size);
         }
-        Err(e) => {
-            if e.kind() == NotFound {
+        Err(error) => {
+            if error.kind() == NotFound {
                 return -2;
             }
             return -3;
@@ -246,8 +246,8 @@ pub unsafe extern "C" fn du_spawn(
                 }
             }
         }
-        Err(e) => {
-            if e.kind() == NotFound {
+        Err(error) => {
+            if error.kind() == NotFound {
                 return -2;
             }
             return -3;
@@ -316,8 +316,8 @@ pub unsafe extern "C" fn du_execute(
                 .into_raw();
             *exitcode = child.status.code().unwrap();
         }
-        Err(e) => {
-            if e.kind() == NotFound {
+        Err(error) => {
+            if error.kind() == NotFound {
                 return -2;
             }
             return -3;
@@ -389,7 +389,8 @@ pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
 /// # Arguments
 ///
 /// * `[in] forced` - Forces the machine to shut down instantly without confirmations.
-/// * `[in] os_code` - Error code returned by the OS when the function fails.
+/// * `[in,out] error_msg` - Error message as C-like string returned by the OS when the function fails.
+/// * `[in] error_size` - Size of the error message.
 ///
 /// # Returns
 ///
@@ -397,14 +398,20 @@ pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
 /// * `-1` - Invalid argument.
 /// * `-2` - OS error.
 #[no_mangle]
-pub unsafe extern "C" fn du_shutdown(forced: bool, os_code: *mut c_int) -> c_int {
-    if os_code.is_null() {
+pub unsafe extern "C" fn du_shutdown(
+    forced: bool,
+    error_msg: *mut c_char,
+    error_size: size_t,
+) -> c_int {
+    if error_msg.is_null() || error_size <= 0 {
         return -1;
     }
-    match shutdown(forced) {
-        None => 0,
-        Some(code) => {
-            *os_code = code;
+    let result = if forced { force_shutdown() } else { shutdown() };
+    match result {
+        Ok(_) => 0,
+        Err(error) => {
+            let msg = to_c_str!(error.to_string()).unwrap();
+            copy_c_str!(msg, error_msg, error_size);
             -2
         }
     }
@@ -415,7 +422,8 @@ pub unsafe extern "C" fn du_shutdown(forced: bool, os_code: *mut c_int) -> c_int
 /// # Arguments
 ///
 /// * `[in] forced` - Forces the machine to reboot instantly without confirmations.
-/// * `[in] os_code` - Error code returned by the OS when the function fails.
+/// * `[in,out] error_msg` - Error message as C-like string returned by the OS when the function fails.
+/// * `[in] error_size` - Size of the error message.
 ///
 /// # Returns
 ///
@@ -423,14 +431,53 @@ pub unsafe extern "C" fn du_shutdown(forced: bool, os_code: *mut c_int) -> c_int
 /// * `-1` - Invalid argument.
 /// * `-2` - OS error.
 #[no_mangle]
-pub unsafe extern "C" fn du_reboot(forced: bool, os_code: *mut c_int) -> c_int {
-    if os_code.is_null() {
+pub unsafe extern "C" fn du_reboot(
+    forced: bool,
+    error_msg: *mut c_char,
+    error_size: size_t,
+) -> c_int {
+    if error_msg.is_null() || error_size <= 0 {
         return -1;
     }
-    match reboot(forced) {
-        None => 0,
-        Some(code) => {
-            *os_code = code;
+    let result = if forced { force_reboot() } else { reboot() };
+    match result {
+        Ok(_) => 0,
+        Err(error) => {
+            let msg = to_c_str!(error.to_string()).unwrap();
+            copy_c_str!(msg, error_msg, error_size);
+            -2
+        }
+    }
+}
+
+/// Calls the OS-specific function to log out the user.
+///
+/// # Arguments
+///
+/// * `[in] forced` - Forces the machine to log out instantly without confirmations.
+/// * `[in,out] error_msg` - Error message as C-like string returned by the OS when the function fails.
+/// * `[in] error_size` - Size of the error message.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - OS error.
+#[no_mangle]
+pub unsafe extern "C" fn du_logout(
+    forced: bool,
+    error_msg: *mut c_char,
+    error_size: size_t,
+) -> c_int {
+    if error_msg.is_null() || error_size <= 0 {
+        return -1;
+    }
+    let result = if forced { force_logout() } else { logout() };
+    match result {
+        Ok(_) => 0,
+        Err(error) => {
+            let msg = to_c_str!(error.to_string()).unwrap();
+            copy_c_str!(msg, error_msg, error_size);
             -2
         }
     }
@@ -723,14 +770,27 @@ mod tests {
     #[test]
     fn shutdown() {
         unsafe {
-            assert_eq!(du_shutdown(true, ptr::null_mut()), -1);
+            assert_eq!(du_shutdown(true, ptr::null_mut(), 123), -1);
+            let mut msg: [c_char; 256] = [0; 256];
+            assert_eq!(du_shutdown(true, msg.as_mut_ptr(), 0), -1);
         }
     }
 
     #[test]
     fn reboot() {
         unsafe {
-            assert_eq!(du_reboot(true, ptr::null_mut()), -1);
+            assert_eq!(du_reboot(true, ptr::null_mut(), 123), -1);
+            let mut msg: [c_char; 256] = [0; 256];
+            assert_eq!(du_reboot(true, msg.as_mut_ptr(), 0), -1);
+        }
+    }
+
+    #[test]
+    fn logout() {
+        unsafe {
+            assert_eq!(du_logout(true, ptr::null_mut(), 123), -1);
+            let mut msg: [c_char; 256] = [0; 256];
+            assert_eq!(du_logout(true, msg.as_mut_ptr(), 0), -1);
         }
     }
 }
