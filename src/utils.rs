@@ -1,3 +1,10 @@
+use crate::DU_LOCKKEY::{
+    self, {DU_LK_CAPSLOCK, DU_LK_NUMLOCK, DU_LK_SCROLLLOCK},
+};
+use lock_keys::LockKeys::{
+    self, {CapitalLock, NumberLock, ScrollingLock},
+};
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! from_c_str {
@@ -53,4 +60,24 @@ macro_rules! copy_c_str {
         }
         copy!(buf.as_ptr(), $dest, buf_size);
     };
+}
+
+impl From<LockKeys> for DU_LOCKKEY {
+    fn from(key: LockKeys) -> Self {
+        match key {
+            CapitalLock => DU_LK_CAPSLOCK,
+            NumberLock => DU_LK_NUMLOCK,
+            ScrollingLock => DU_LK_SCROLLLOCK,
+        }
+    }
+}
+
+impl From<DU_LOCKKEY> for LockKeys {
+    fn from(key: DU_LOCKKEY) -> Self {
+        match key {
+            DU_LK_CAPSLOCK => CapitalLock,
+            DU_LK_NUMLOCK => NumberLock,
+            DU_LK_SCROLLLOCK => ScrollingLock,
+        }
+    }
 }

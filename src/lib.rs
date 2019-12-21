@@ -1,7 +1,10 @@
+extern crate lock_keys;
+
 use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
 use libc::{c_char, c_int, size_t};
+use lock_keys::{LockKey, LockKeyWrapper};
 use opener;
 use single_instance::SingleInstance;
 use std::ffi::CString;
@@ -483,6 +486,45 @@ pub unsafe extern "C" fn du_logout(
     }
 }
 
+/// Available lock keys for handling, i.e. Capital Lock, Number Lock and Scrolling Lock.
+#[repr(C)]
+pub enum DU_LOCKKEY {
+    #[allow(non_camel_case_types)]
+    DU_LK_CAPSLOCK,
+    #[allow(non_camel_case_types)]
+    DU_LK_NUMLOCK,
+    #[allow(non_camel_case_types)]
+    DU_LK_SCROLLLOCK,
+}
+
+/// Enables the lock key.
+///
+/// # Arguments
+///
+/// * `[in] key` - The key to set a new state.
+/// * `[in] enabled` - The new state (enabled/disabled) for the key.
+#[no_mangle]
+pub unsafe extern "C" fn du_lockkey_set(key: DU_LOCKKEY, enabled: bool) {
+    let lockkey = LockKey::new();
+    lockkey.set(key.into(), enabled.into()).unwrap();
+}
+
+/// Retrieve the lock key state.
+///
+/// # Arguments
+///
+/// * `[in] key` - The key to set a new state.
+///
+/// # Returns
+///
+/// * `true` - Enabled.
+/// * `false` - Disabled.
+#[no_mangle]
+pub unsafe extern "C" fn du_lockkey_state(key: DU_LOCKKEY) -> bool {
+    let lockkey = LockKey::new();
+    lockkey.state(key.into()).unwrap().into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -791,6 +833,30 @@ mod tests {
             assert_eq!(du_logout(true, ptr::null_mut(), 123), -1);
             let mut msg: [c_char; 256] = [0; 256];
             assert_eq!(du_logout(true, msg.as_mut_ptr(), 0), -1);
+        }
+    }
+
+    #[test]
+    fn lockkey_set() {
+        unsafe {
+            let old_key_state = du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, false);
+            assert_eq!(du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK), false);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, true);
+            assert_eq!(du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK), true);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, old_key_state);
+        }
+    }
+
+    #[test]
+    fn lockkey_state() {
+        unsafe {
+            let old_key_state = du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, false);
+            assert_eq!(du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK), false);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, true);
+            assert_eq!(du_lockkey_state(DU_LOCKKEY::DU_LK_NUMLOCK), true);
+            du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, old_key_state);
         }
     }
 }
