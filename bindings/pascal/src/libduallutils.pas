@@ -74,6 +74,7 @@ type
   cint = Integer;
   Pcint= PInteger;
   csize_t = NativeUInt;
+  cenum = cint;
 
   EduLibNotLoaded = class(EFileNotFoundException);
 
@@ -100,6 +101,17 @@ var
     error_size: csize_t): cint; cdecl;
   du_logout: function(forced: cbool; error_msg: Pcchar;
     error_size: csize_t): cint; cdecl;
+
+type
+  DU_LOCKKEY = cenum;
+const
+  DU_LK_CAPSLOCK = 0;
+  DU_LK_NUMLOCK = 1;
+  DU_LK_SCROLLLOCK = 2;
+
+var
+  du_lockkey_set: procedure(key: DU_LOCKKEY; enabled: cbool); cdecl;
+  du_lockkey_state: function(key: DU_LOCKKEY): cbool; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
 
@@ -141,6 +153,8 @@ begin
     du_shutdown := GetProcAddress(GLibHandle, 'du_shutdown');
     du_reboot := GetProcAddress(GLibHandle, 'du_reboot');
     du_logout := GetProcAddress(GLibHandle, 'du_logout');
+    du_lockkey_set := GetProcAddress(GLibHandle, 'du_lockkey_set');
+    du_lockkey_state := GetProcAddress(GLibHandle, 'du_lockkey_state');
     Result := True;
   finally
     GCS.Release;
@@ -180,6 +194,8 @@ begin
     du_shutdown := nil;
     du_reboot := nil;
     du_logout := nil;
+    du_lockkey_set := nil;
+    du_lockkey_state := nil;
   finally
     GCS.Release;
   end;

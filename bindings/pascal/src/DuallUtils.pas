@@ -38,6 +38,11 @@ type
 
   EdUtils = class(EInvalidOpException);
 
+  { TdLockKeys }
+
+  TdLockKeys = (lkCapitalLock = DU_LK_CAPSLOCK, lkNumberLock = DU_LK_NUMLOCK,
+    lkScrollingLock = DU_LK_SCROLLLOCK);
+
   { dUtils }
 
   dUtils = packed record
@@ -77,6 +82,8 @@ type
     class procedure Shutdown(AForced: Boolean = False); static;
     class procedure Reboot(AForced: Boolean = False); static;
     class procedure Logout(AForced: Boolean = False); static;
+    class procedure SetLockKey(AKey: TdLockKeys; AEnabled: Boolean); static;
+    class function LockKeyState(AKey: TdLockKeys): Boolean; static;
   end;
 
 implementation
@@ -467,6 +474,18 @@ var
 begin
   if not TryLogout(AForced, E) then
     raise EOSError.Create(E);
+end;
+
+class procedure dUtils.SetLockKey(AKey: TdLockKeys; AEnabled: Boolean);
+begin
+  libduallutils.Check;
+  libduallutils.du_lockkey_set(DU_LOCKKEY(AKey), AEnabled);
+end;
+
+class function dUtils.LockKeyState(AKey: TdLockKeys): Boolean;
+begin
+  libduallutils.Check;
+  Result := libduallutils.du_lockkey_state(DU_LOCKKEY(AKey));
 end;
 
 end.

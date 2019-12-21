@@ -123,6 +123,30 @@ begin
   Assert(not dUtils.Once('myinstance'));
 end;
 
+procedure TestSetLockKey;
+var
+  VOldLockKeyState: Boolean;
+begin
+  VOldLockKeyState := dUtils.LockKeyState(lkNumberLock);
+  dUtils.SetLockKey(lkNumberLock, False);
+  Assert(not dUtils.LockKeyState(lkNumberLock));
+  dUtils.SetLockKey(lkNumberLock, True);
+  Assert(dUtils.LockKeyState(lkNumberLock));
+  dUtils.SetLockKey(lkNumberLock, VOldLockKeyState);
+end;
+
+procedure TestLockKeyState;
+var
+  VOldLockKeyState: Boolean;
+begin
+  VOldLockKeyState := dUtils.LockKeyState(lkNumberLock);
+  dUtils.SetLockKey(lkNumberLock, False);
+  Assert(not dUtils.LockKeyState(lkNumberLock));
+  dUtils.SetLockKey(lkNumberLock, True);
+  Assert(dUtils.LockKeyState(lkNumberLock));
+  dUtils.SetLockKey(lkNumberLock, VOldLockKeyState);
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
@@ -142,6 +166,8 @@ begin
   // TestShutdown
   // TestReboot
   // TestLogout
+  TestSetLockKey;
+  TestLockKeyState;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');
