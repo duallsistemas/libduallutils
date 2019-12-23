@@ -23,8 +23,11 @@ use std::ffi::CString;
 use std::fs::File;
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
+use std::io::{Error, ErrorKind};
 use std::process::{Command, Stdio};
 use std::ptr;
+use sysinfo::Signal::Term;
+use sysinfo::{ProcessExt, System, SystemExt};
 use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot, shutdown};
 
 mod utils;
@@ -564,6 +567,43 @@ pub unsafe extern "C" fn du_datetime_set(
     second: c_int,
 ) -> c_int {
     os::datetime_set(year, month, day, hour, minute, second)
+}
+
+/// Calls the OS-specific function to terminate a process.
+///
+/// # Arguments
+///
+/// * `[in] process_name` - The process name to be terminated.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - No process found.
+/// * `-3` - Operation not permitted.
+/// * `-4` - OS error.
+#[no_mangle]
+pub unsafe extern "C" fn du_killall(process_name: *const c_char) -> c_int {
+    if process_name.is_null() {
+        return -1;
+    }
+    let sys = System::new();
+    for proc in sys.get_process_by_name(from_c_str!(process_name).unwrap()) {
+        match sys.get_process(proc.pid()) {
+            Some(p) => {
+                if p.kill(Term) {
+                    return 0;
+                }
+                if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
+                    return -3;
+                } else {
+                    return -4;
+                }
+            }
+            None => break,
+        };
+    }
+    -2
 }
 
 #[cfg(test)]
