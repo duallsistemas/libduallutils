@@ -15,12 +15,13 @@ mod os;
 use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
+use glob::glob;
 use libc::{c_char, c_int, size_t};
 use lock_keys::{LockKey, LockKeyWrapper};
 use opener;
 use single_instance::SingleInstance;
 use std::ffi::CString;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
 use std::io::{Error, ErrorKind};
@@ -646,6 +647,40 @@ pub unsafe extern "C" fn du_killall(process_name: *const c_char, signal: DU_SIGN
         };
     }
     -2
+}
+
+/// Deletes one or more files matching their paths against Unix shell style patterns.
+///
+/// # Arguments
+///
+/// * `[in] pattern` - Pattern in Unix shell style.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - Not found.
+/// * `-3` - OS error.
+#[no_mangle]
+pub unsafe extern "C" fn du_deltree(pattern: *const c_char) -> c_int {
+    if pattern.is_null() {
+        return -1;
+    }
+    let mut found: c_int = -2;
+    for entry in glob(from_c_str!(pattern).unwrap()).unwrap() {
+        match entry {
+            Ok(path) => {
+                if path.is_dir() {
+                    fs::remove_dir_all(path).unwrap_or_default();
+                } else {
+                    fs::remove_file(path).unwrap_or_default();
+                }
+                found = 0;
+            }
+            Err(_) => return -3,
+        }
+    }
+    found
 }
 
 #[cfg(test)]
