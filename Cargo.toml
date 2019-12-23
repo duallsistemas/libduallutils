@@ -1,6 +1,6 @@
 [package]
 name = 'duallutils'
-version = '3.1.0'
+version = '3.2.0'
 authors = ['silvioprog <silvioprog@gmail.com>']
 edition = '2018'
 
@@ -19,3 +19,10 @@ opener = '0.4.1'
 single-instance = '0.1.1'
 system_shutdown = '3.0.0'
 lock_keys = '1.0.0'
+[target."cfg(windows)".dependencies.winapi]
+version = '0.3'
+features = [
+    'datetimeapi',
+    'sysinfoapi',
+    'winerror',
+]

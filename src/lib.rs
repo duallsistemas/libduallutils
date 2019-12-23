@@ -537,7 +537,20 @@ pub unsafe extern "C" fn du_lockkey_state(key: DU_LOCKKEY) -> bool {
     lockkey.state(key.into()).unwrap().into()
 }
 
-/// Experimental!
+/// Calls the OS-specific function to change the system date and time.
+///
+/// # Arguments
+///
+/// * `[in] forced` - Forces the machine to log out instantly without confirmations.
+/// * `[in,out] error_msg` - Error message as C-like string returned by the OS when the function fails.
+/// * `[in] error_size` - Size of the error message.
+///
+/// # Returns
+///
+/// * `0` - Success.
+/// * `-1` - Invalid argument.
+/// * `-2` - Operation not permitted.
+/// * `-3` - OS error.
 #[no_mangle]
 pub unsafe extern "C" fn du_datetime_set(
     year: c_int,
