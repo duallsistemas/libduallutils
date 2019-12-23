@@ -541,9 +541,12 @@ pub unsafe extern "C" fn du_lockkey_state(key: DU_LOCKKEY) -> bool {
 ///
 /// # Arguments
 ///
-/// * `[in] forced` - Forces the machine to log out instantly without confirmations.
-/// * `[in,out] error_msg` - Error message as C-like string returned by the OS when the function fails.
-/// * `[in] error_size` - Size of the error message.
+/// * `[in] year` - The year to be changed.
+/// * `[in] month` - The month to be changed.
+/// * `[in] day` - The day to be changed.
+/// * `[in] hour` - The hour to be changed.
+/// * `[in] minute` - The minute to be changed.
+/// * `[in] second` - The second to be changed.
 ///
 /// # Returns
 ///

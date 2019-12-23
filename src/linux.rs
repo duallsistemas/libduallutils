@@ -1,5 +1,5 @@
-use libc::{c_int, mktime, settimeofday, time_t, timeval, EPERM};
-use std::io::Error;
+use libc::{c_int, mktime, settimeofday, time_t, timeval};
+use std::io::{Error, ErrorKind};
 use std::mem;
 use std::ptr;
 
@@ -30,7 +30,7 @@ pub unsafe fn datetime_set(
         tv_usec: 0,
     };
     if settimeofday(&tv, ptr::null()) == -1 {
-        if Error::last_os_error().raw_os_error().unwrap() == EPERM {
+        if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
             return -2;
         } else {
             return -3;

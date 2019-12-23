@@ -1,8 +1,7 @@
 use libc::c_int;
-use std::io::Error;
+use std::io::{Error, ErrorKind};
 use std::mem;
 use winapi::shared::minwindef::{DWORD, WORD};
-use winapi::shared::winerror::ERROR_PRIVILEGE_NOT_HELD;
 use winapi::um::minwinbase::SYSTEMTIME;
 use winapi::um::sysinfoapi::SetSystemTime;
 
@@ -21,9 +20,7 @@ pub unsafe fn datetime_set(
     st.wHour = hour as WORD;
     st.wMinute = minute as WORD;
     st.wSecond = second as WORD;
-    if (SetSystemTime(&st) == 0)
-        && (Error::last_os_error().raw_os_error().unwrap() as DWORD == ERROR_PRIVILEGE_NOT_HELD)
-    {
+    if (SetSystemTime(&st) == 0) && (Error::last_os_error().kind() == ErrorKind::PermissionDenied) {
         return -2;
     }
     0
