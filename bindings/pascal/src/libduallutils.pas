@@ -115,6 +115,26 @@ var
   du_lockkey_set: procedure(key: DU_LOCKKEY; enabled: cbool); cdecl;
   du_lockkey_state: function(key: DU_LOCKKEY): cbool; cdecl;
 
+type
+  DU_SIGNALS = cenum;
+const
+  DU_SIG_HANGUP = 1;
+  DU_SIG_INTERRUPT = 2;
+  DU_SIG_QUIT = 3;
+  DU_SIG_ILLEGAL = 4;
+  DU_SIG_ABORT = 5;
+  DU_SIG_KILL = 6;
+  DU_SIG_USER1 = 7;
+  DU_SIG_SEGV = 8;
+  DU_SIG_USER2 = 9;
+  DU_SIG_PIPE = 10;
+  DU_SIG_ALARM = 11;
+  DU_SIG_TERM = 12;
+
+var
+  du_killall: function(const process_name: Pcchar;
+    signal: DU_SIGNALS): cint; cdecl;
+
 function TryLoad(const ALibraryName: TFileName): Boolean;
 
 procedure Load(const ALibraryName: TFileName);
@@ -158,6 +178,7 @@ begin
     du_lockkey_set := GetProcAddress(GLibHandle, 'du_lockkey_set');
     du_lockkey_state := GetProcAddress(GLibHandle, 'du_lockkey_state');
     du_datetime_set := GetProcAddress(GLibHandle, 'du_datetime_set');
+    du_killall := GetProcAddress(GLibHandle, 'du_killall');
     Result := True;
   finally
     GCS.Release;
@@ -200,6 +221,7 @@ begin
     du_lockkey_set := nil;
     du_lockkey_state := nil;
     du_datetime_set := nil;
+    du_killall := nil;
   finally
     GCS.Release;
   end;
