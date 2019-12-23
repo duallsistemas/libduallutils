@@ -19,6 +19,7 @@ opener = '0.4.1'
 single-instance = '0.1.1'
 system_shutdown = '3.0.0'
 lock_keys = '1.0.0'
+sysinfo = '0.10.3'
 [target."cfg(windows)".dependencies.winapi]
 version = '0.3'
 features = [
