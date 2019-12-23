@@ -26,7 +26,7 @@ use std::io::Read;
 use std::io::{Error, ErrorKind};
 use std::process::{Command, Stdio};
 use std::ptr;
-use sysinfo::Signal::Term;
+use sysinfo::Signal;
 use sysinfo::{ProcessExt, System, SystemExt};
 use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot, shutdown};
 
@@ -569,6 +569,35 @@ pub unsafe extern "C" fn du_datetime_set(
     os::datetime_set(year, month, day, hour, minute, second)
 }
 
+/// Available signals to use with `du_killall()` function.
+#[repr(C)]
+pub enum DU_SIGNALS {
+    #[allow(non_camel_case_types)]
+    DU_SIG_HANGUP,
+    #[allow(non_camel_case_types)]
+    DU_SIG_INTERRUPT,
+    #[allow(non_camel_case_types)]
+    DU_SIG_QUIT,
+    #[allow(non_camel_case_types)]
+    DU_SIG_ILLEGAL,
+    #[allow(non_camel_case_types)]
+    DU_SIG_ABORT,
+    #[allow(non_camel_case_types)]
+    DU_SIG_KILL,
+    #[allow(non_camel_case_types)]
+    DU_SIG_USER1,
+    #[allow(non_camel_case_types)]
+    DU_SIG_SEGV,
+    #[allow(non_camel_case_types)]
+    DU_SIG_USER2,
+    #[allow(non_camel_case_types)]
+    DU_SIG_PIPE,
+    #[allow(non_camel_case_types)]
+    DU_SIG_ALARM,
+    #[allow(non_camel_case_types)]
+    DU_SIG_TERM,
+}
+
 /// Calls the OS-specific function to terminate a process.
 ///
 /// # Arguments
@@ -583,7 +612,7 @@ pub unsafe extern "C" fn du_datetime_set(
 /// * `-3` - Operation not permitted.
 /// * `-4` - OS error.
 #[no_mangle]
-pub unsafe extern "C" fn du_killall(process_name: *const c_char) -> c_int {
+pub unsafe extern "C" fn du_killall(process_name: *const c_char, signal: DU_SIGNALS) -> c_int {
     if process_name.is_null() {
         return -1;
     }
@@ -591,7 +620,20 @@ pub unsafe extern "C" fn du_killall(process_name: *const c_char) -> c_int {
     for proc in sys.get_process_by_name(from_c_str!(process_name).unwrap()) {
         match sys.get_process(proc.pid()) {
             Some(p) => {
-                if p.kill(Term) {
+                if p.kill(match signal {
+                    DU_SIGNALS::DU_SIG_HANGUP => Signal::Hangup,
+                    DU_SIGNALS::DU_SIG_INTERRUPT => Signal::Interrupt,
+                    DU_SIGNALS::DU_SIG_QUIT => Signal::Quit,
+                    DU_SIGNALS::DU_SIG_ILLEGAL => Signal::Illegal,
+                    DU_SIGNALS::DU_SIG_ABORT => Signal::Abort,
+                    DU_SIGNALS::DU_SIG_KILL => Signal::Kill,
+                    DU_SIGNALS::DU_SIG_USER1 => Signal::User1,
+                    DU_SIGNALS::DU_SIG_SEGV => Signal::Segv,
+                    DU_SIGNALS::DU_SIG_USER2 => Signal::User2,
+                    DU_SIGNALS::DU_SIG_PIPE => Signal::Pipe,
+                    DU_SIGNALS::DU_SIG_ALARM => Signal::Alarm,
+                    DU_SIGNALS::DU_SIG_TERM => Signal::Term,
+                }) {
                     return 0;
                 }
                 if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
