@@ -1,7 +1,7 @@
 use libc::c_int;
 use std::io::{Error, ErrorKind};
 use std::mem;
-use winapi::shared::minwindef::{DWORD, WORD};
+use winapi::shared::minwindef::WORD;
 use winapi::um::minwinbase::SYSTEMTIME;
 use winapi::um::sysinfoapi::SetSystemTime;
 
