@@ -168,6 +168,7 @@ begin
   // TestLogout
   TestSetLockKey;
   TestLockKeyState;
+  // TestSetDateTime
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');

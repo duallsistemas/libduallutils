@@ -101,6 +101,8 @@ var
     error_size: csize_t): cint; cdecl;
   du_logout: function(forced: cbool; error_msg: Pcchar;
     error_size: csize_t): cint; cdecl;
+  du_datetime_set: function(year: cint; month: cint; day: cint; hour: cint;
+    minute: cint; second: cint): cint; cdecl;
 
 type
   DU_LOCKKEY = cenum;
@@ -155,6 +157,7 @@ begin
     du_logout := GetProcAddress(GLibHandle, 'du_logout');
     du_lockkey_set := GetProcAddress(GLibHandle, 'du_lockkey_set');
     du_lockkey_state := GetProcAddress(GLibHandle, 'du_lockkey_state');
+    du_datetime_set := GetProcAddress(GLibHandle, 'du_datetime_set');
     Result := True;
   finally
     GCS.Release;
@@ -196,6 +199,7 @@ begin
     du_logout := nil;
     du_lockkey_set := nil;
     du_lockkey_state := nil;
+    du_datetime_set := nil;
   finally
     GCS.Release;
   end;

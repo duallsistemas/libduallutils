@@ -31,6 +31,7 @@ resourcestring
   SInvalidFunctionArgument = 'Invalid function argument.';
   SUnknownErrorInFunction = 'Unknown error in function: %s.';
   SFileNotFound = 'File not found: %s.';
+  SOperationNotPermitted = 'Operation not permitted.';
 
 type
 
@@ -84,6 +85,9 @@ type
     class procedure Logout(AForced: Boolean = False); static;
     class procedure SetLockKey(AKey: TdLockKeys; AEnabled: Boolean); static;
     class function LockKeyState(AKey: TdLockKeys): Boolean; static;
+    class procedure SetDateTime(AYear, AMonth, ADay, AHour, AMinute,
+      ASecond: Word); overload; static;
+    class procedure SetDateTime(const ADateTime: TDateTime); overload; static;
   end;
 
 implementation
@@ -486,6 +490,29 @@ class function dUtils.LockKeyState(AKey: TdLockKeys): Boolean;
 begin
   libduallutils.Check;
   Result := libduallutils.du_lockkey_state(DU_LOCKKEY(AKey));
+end;
+
+class procedure dUtils.SetDateTime(AYear, AMonth, ADay, AHour, AMinute,
+  ASecond: Word);
+var
+  R: cint;
+begin
+  libduallutils.Check;
+  R := libduallutils.du_datetime_set(AYear, AMonth, ADay, AHour, AMinute,
+    ASecond);
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: raise EInvalidOpException.Create(SOperationNotPermitted);
+  end;
+end;
+
+class procedure dUtils.SetDateTime(const ADateTime: TDateTime);
+var
+  Y, M, D, H, N, S, MS: Word;
+begin
+  DecodeDate(ADateTime, Y, M, D);
+  DecodeTime(ADateTime, H, N, S, MS);
+  dUtils.SetDateTime(Y, M, D, H, N, S);
 end;
 
 end.
