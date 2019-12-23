@@ -1,3 +1,6 @@
+#[cfg(target_os = "windows")]
+extern crate winapi;
+
 extern crate libc;
 extern crate lock_keys;
 
