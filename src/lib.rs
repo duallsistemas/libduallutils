@@ -3,14 +3,16 @@ extern crate lock_keys;
 use crypto::digest::Digest;
 use crypto::md5::Md5;
 use crypto::sha1::Sha1;
-use libc::{c_char, c_int, size_t};
+use libc::{c_char, c_int, mktime, settimeofday, size_t, time_t, timeval, EPERM};
 use lock_keys::{LockKey, LockKeyWrapper};
 use opener;
 use single_instance::SingleInstance;
 use std::ffi::CString;
 use std::fs::File;
+use std::io::Error;
 use std::io::ErrorKind::NotFound;
 use std::io::Read;
+use std::mem;
 use std::process::{Command, Stdio};
 use std::ptr;
 use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot, shutdown};
@@ -523,6 +525,44 @@ pub unsafe extern "C" fn du_lockkey_set(key: DU_LOCKKEY, enabled: bool) {
 pub unsafe extern "C" fn du_lockkey_state(key: DU_LOCKKEY) -> bool {
     let lockkey = LockKey::new();
     lockkey.state(key.into()).unwrap().into()
+}
+
+/// Experimental!
+#[no_mangle]
+pub unsafe extern "C" fn du_datetime_set(
+    year: c_int,
+    month: c_int,
+    day: c_int,
+    hour: c_int,
+    minute: c_int,
+    second: c_int,
+) -> c_int {
+    let mut time: libc::tm = mem::zeroed();
+    time.tm_year = year - 1900;
+    time.tm_mon = month - 1;
+    time.tm_mday = day;
+    time.tm_hour = hour;
+    time.tm_min = minute;
+    time.tm_sec = second;
+    if time.tm_year < 0 {
+        time.tm_year = 0;
+    }
+    let t: time_t = mktime(&mut time);
+    if t == -1 {
+        return -1;
+    }
+    let tv: timeval = timeval {
+        tv_sec: t,
+        tv_usec: 0,
+    };
+    if settimeofday(&tv, ptr::null()) == -1 {
+        if Error::last_os_error().raw_os_error().unwrap() == EPERM {
+            return -2;
+        } else {
+            return -3;
+        }
+    };
+    0
 }
 
 #[cfg(test)]
