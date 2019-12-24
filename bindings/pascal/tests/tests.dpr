@@ -147,6 +147,35 @@ begin
   dUtils.SetLockKey(lkNumberLock, VOldLockKeyState);
 end;
 
+procedure TestDelTree;
+
+  procedure CreateFile(const AFileName: TFileName); inline;
+  begin
+    with TFileStream.Create(AFileName, fmCreate) do
+    try
+    finally
+      Destroy;
+    end;
+  end;
+
+begin
+  CreateDir('tmp');
+  CreateFile(Concat('tmp', PathDelim, 'foo.txt'));
+  CreateFile(Concat('tmp', PathDelim, 'bar.txt'));
+  ForceDirectories(Concat('tmp', PathDelim, 'foobar'));
+  CreateFile(Concat('tmp', PathDelim, 'foobar', PathDelim, 'foobar.txt'));
+  Assert(DirectoryExists('tmp'));
+  Assert(FileExists(Concat('tmp', PathDelim, 'foo.txt')));
+  Assert(FileExists(Concat('tmp', PathDelim, 'bar.txt')));
+  Assert(FileExists(Concat('tmp', PathDelim, 'foobar', PathDelim,
+    'foobar.txt')));
+  Assert(dUtils.DelTree('tmp/*.txt'));
+  Assert(not FileExists(Concat('tmp', PathDelim, 'foo.txt')));
+  Assert(not FileExists(Concat('tmp', PathDelim, 'bar.txt')));
+  Assert(dUtils.DelTree('tmp'));
+  Assert(not DirectoryExists('tmp'));
+end;
+
 begin
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
   TestVersion;
@@ -170,6 +199,7 @@ begin
   TestLockKeyState;
   // TestSetDateTime
   // TestKillAll
+  TestDelTree;
   Writeln('All tests passed!');
 {$IFDEF MSWINDOWS}
   Writeln('Press ENTER to exit ...');

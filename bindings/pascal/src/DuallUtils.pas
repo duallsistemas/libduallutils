@@ -95,6 +95,7 @@ type
     class procedure SetDateTime(const ADateTime: TDateTime); overload; static;
     class function KillAll(const AProcessName: string;
       ASignal: TdSignals = sigTerm): Boolean; overload; static;
+    class function DelTree(const APattern: string): Boolean; static;
   end;
 
 implementation
@@ -538,6 +539,14 @@ begin
     -4: RaiseLastOSError;
   end;
   Result := True;
+end;
+
+class function dUtils.DelTree(const APattern: string): Boolean;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  Result := libduallutils.du_deltree(M.ToCNullableString(APattern)) = 0;
 end;
 
 end.
