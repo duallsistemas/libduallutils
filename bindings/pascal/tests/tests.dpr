@@ -97,7 +97,7 @@ var
   O: Integer;
 begin
   Assert(not dUtils.Spawn('blah blah', []));
-  Assert(dUtils.Spawn('echo', '', [], [],
+  Assert(dUtils.Spawn('cmd', '', ['/C', 'echo'], [],
 {$IFDEF MSWINDOWS}True,{$ENDIF}True, O));
   Assert(O = 0);
 end;
@@ -177,7 +177,11 @@ begin
 end;
 
 begin
+{$IFDEF MSWINDOWS}
+  dUtils.Load(Concat('../../target/i686-pc-windows-msvc/release/', dUtils.LIB_NAME));
+{$ELSE}
   dUtils.Load(Concat('../../target/release/', dUtils.LIB_NAME));
+{$ENDIF}
   TestVersion;
   TestMD5;
   TestTryMD5File;
