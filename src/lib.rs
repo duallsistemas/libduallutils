@@ -1017,4 +1017,29 @@ mod tests {
             du_lockkey_set(DU_LOCKKEY::DU_LK_NUMLOCK, old_key_state);
         }
     }
+
+    #[test]
+    fn deltree() {
+        use std::path::Path;
+        unsafe {
+            assert_eq!(du_deltree(ptr::null()), -1);
+            fs::create_dir("tmp").unwrap_or_default();
+            File::create(Path::new("tmp").join("foo.txt")).unwrap();
+            File::create(Path::new("tmp").join("bar.txt")).unwrap();
+            fs::create_dir(Path::new("tmp").join("foobar")).unwrap_or_default();
+            File::create(Path::new("tmp").join("foobar").join("foobar.txt")).unwrap();
+            assert_eq!(Path::new("tmp").exists(), true);
+            assert_eq!(Path::new("tmp").join("foo.txt").exists(), true);
+            assert_eq!(Path::new("tmp").join("bar.txt").exists(), true);
+            assert_eq!(
+                Path::new("tmp").join("foobar").join("foobar.txt").exists(),
+                true
+            );
+            assert_eq!(du_deltree(to_c_str!("tmp/*.txt").unwrap().as_ptr()), 0);
+            assert_eq!(Path::new("tmp").join("foo.txt").exists(), false);
+            assert_eq!(Path::new("tmp").join("bar.txt").exists(), false);
+            assert_eq!(du_deltree(to_c_str!("tmp").unwrap().as_ptr()), 0);
+            assert_eq!(Path::new("tmp").exists(), false);
+        }
+    }
 }
