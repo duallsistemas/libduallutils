@@ -511,6 +511,7 @@ begin
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: raise EInvalidOpException.Create(SOperationNotPermitted);
+    -3: RaiseUnknownErrorInFunction('dUtils.SetDateTime');
   end;
 end;
 
