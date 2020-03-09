@@ -334,7 +334,7 @@ class function dUtils.Spawn(const AProgram: TFileName;
 var
   O: Integer;
 begin
-  Result := dUtils.Spawn(AProgram, '', AArgs, [],
+  Result := dUtils.Spawn(AProgram, ExtractFilePath(AProgram), AArgs, [],
 {$IFDEF MSWINDOWS}AHidden,{$ENDIF} AWaiting, O);
 end;
 
