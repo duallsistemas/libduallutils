@@ -617,8 +617,9 @@ pub unsafe extern "C" fn du_killall(process_name: *const c_char, signal: DU_SIGN
     if process_name.is_null() {
         return -1;
     }
-    let sys = System::new();
-    for proc in sys.get_process_by_name(from_c_str!(process_name).unwrap()) {
+    let name = from_c_str!(process_name).unwrap();
+    let sys = System::new_all();
+    for proc in sys.get_process_by_name(name) {
         match sys.get_process(proc.pid()) {
             Some(p) => {
                 if p.kill(match signal {
