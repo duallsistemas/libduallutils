@@ -3,7 +3,6 @@ use std::ffi::{CStr, OsString};
 use std::io::Error;
 use std::mem;
 use std::os::windows::prelude::*;
-use std::path::Path;
 use winapi::shared::minwindef::{DWORD, MAX_PATH, WORD};
 use winapi::shared::winerror::{ERROR_ACCESS_DENIED, ERROR_PRIVILEGE_NOT_HELD};
 use winapi::um::errhandlingapi::GetLastError;
@@ -64,30 +63,30 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
     let ret: c_int = {
         match Process32FirstW(handle, &mut process_entry) {
             1 => loop {
-                match OsString::from_wide(&process_entry.szExeFile).into_string() {
-                    Ok(s) => match Path::new(&s).file_stem() {
-                        Some(name) => {
-                            if name.to_string_lossy().to_ascii_lowercase()
-                                == CStr::from_ptr(process_name)
-                                    .to_string_lossy()
-                                    .to_ascii_lowercase()
-                            {
-                                let process =
-                                    OpenProcess(PROCESS_TERMINATE, 0, process_entry.th32ProcessID);
-                                if process != std::ptr::null_mut() {
-                                    if TerminateProcess(process, 0) > 0 {
-                                        CloseHandle(process);
-                                        return 0;
-                                    }
-                                    if GetLastError() == ERROR_ACCESS_DENIED {
-                                        return -3;
-                                    }
-                                }
-                            }
+                let name: String = process_entry
+                    .szExeFile
+                    .iter()
+                    .map(|&v| (v & 0xFF) as u8)
+                    .take_while(|&c| c != 0)
+                    .map(|c| c as char)
+                    .collect();
+                if name.to_ascii_lowercase()
+                    == CStr::from_ptr(process_name)
+                        .to_string_lossy()
+                        .to_ascii_lowercase()
+                {
+                    let process = OpenProcess(PROCESS_TERMINATE, 0, process_entry.th32ProcessID);
+                    if process != std::ptr::null_mut() {
+                        if TerminateProcess(process, 0) > 0 {
+                            CloseHandle(process);
+                            return 0;
                         }
-                        None => {}
-                    },
-                    Err(_) => {}
+                        if GetLastError() == ERROR_ACCESS_DENIED {
+                            return -3;
+                        }
+                    } else {
+                        return -3;
+                    }
                 }
                 if Process32NextW(handle, &mut process_entry) != 1 {
                     return -2;
