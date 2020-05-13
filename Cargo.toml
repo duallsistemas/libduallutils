@@ -1,6 +1,6 @@
 [package]
 name = "duallutils"
-version = "3.4.4"
+version = "3.4.5"
 authors = ["silvioprog <silvioprog@gmail.com>"]
 edition = "2018"
 
