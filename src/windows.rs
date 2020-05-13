@@ -5,7 +5,8 @@ use std::mem;
 use std::os::windows::prelude::*;
 use std::path::Path;
 use winapi::shared::minwindef::{DWORD, MAX_PATH, WORD};
-use winapi::shared::winerror::ERROR_PRIVILEGE_NOT_HELD;
+use winapi::shared::winerror::{ERROR_ACCESS_DENIED, ERROR_PRIVILEGE_NOT_HELD};
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::minwinbase::SYSTEMTIME;
 use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess};
 use winapi::um::sysinfoapi::SetLocalTime;
@@ -69,14 +70,21 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
                             if name.to_string_lossy()
                                 == CStr::from_ptr(process_name).to_string_lossy()
                             {
-                                if TerminateProcess(
-                                    OpenProcess(PROCESS_TERMINATE, 0, process_entry.th32ProcessID),
-                                    0,
-                                ) > 0
-                                {
-                                    return 0;
+                                let process =
+                                    OpenProcess(PROCESS_TERMINATE, 0, process_entry.th32ProcessID);
+                                if process == std::ptr::null_mut() {
+                                    return -4;
                                 }
-                                return 0;
+                                let terminated = TerminateProcess(process, 0) > 0;
+                                CloseHandle(process);
+                                if !terminated {
+                                    return if GetLastError() == ERROR_ACCESS_DENIED {
+                                        -3
+                                    } else {
+                                        0
+                                    };
+                                }
+                                return -4;
                             }
                         }
                         None => {}
