@@ -85,22 +85,6 @@ const
   DU_LK_NUMLOCK = 1;
   DU_LK_SCROLLLOCK = 2;
 
-type
-  DU_SIGNALS = cenum;
-const
-  DU_SIG_HANGUP = 1;
-  DU_SIG_INTERRUPT = 2;
-  DU_SIG_QUIT = 3;
-  DU_SIG_ILLEGAL = 4;
-  DU_SIG_ABORT = 5;
-  DU_SIG_KILL = 6;
-  DU_SIG_USER1 = 7;
-  DU_SIG_SEGV = 8;
-  DU_SIG_USER2 = 9;
-  DU_SIG_PIPE = 10;
-  DU_SIG_ALARM = 11;
-  DU_SIG_TERM = 12;
-
 var
   du_version: function: Pcchar; cdecl;
   du_dispose: procedure(cstr: Pcchar); cdecl;
@@ -128,8 +112,7 @@ var
     minute: cint; second: cint): cint; cdecl;
   du_lockkey_set: procedure(key: DU_LOCKKEY; enabled: cbool); cdecl;
   du_lockkey_state: function(key: DU_LOCKKEY): cbool; cdecl;
-  du_killall: function(const process_name: Pcchar;
-    signal: DU_SIGNALS): cint; cdecl;
+  du_killall: function(const process_name: Pcchar): cint; cdecl;
   du_deltree: function(const pattern: Pcchar): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;

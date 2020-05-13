@@ -1,7 +1,10 @@
-use libc::{c_int, mktime, settimeofday, time_t, timeval};
+use libc::{c_char, c_int, mktime, settimeofday, time_t, timeval};
+use std::ffi::CStr;
 use std::io::{Error, ErrorKind};
 use std::mem;
 use std::ptr;
+use sysinfo::Signal;
+use sysinfo::{ProcessExt, System, SystemExt};
 
 pub unsafe fn datetime_set(
     year: c_int,
@@ -37,4 +40,25 @@ pub unsafe fn datetime_set(
         }
     };
     0
+}
+
+pub unsafe fn terminate(process_name: *const c_char) -> c_int {
+    let name = CStr::from_ptr(process_name).to_str().unwrap();
+    let sys = System::new_all();
+    for proc in sys.get_process_by_name(name) {
+        match sys.get_process(proc.pid()) {
+            Some(p) => {
+                if p.kill(Signal::Term) {
+                    return 0;
+                }
+                if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
+                    return -3;
+                } else {
+                    return -4;
+                }
+            }
+            None => break,
+        };
+    }
+    -2
 }

@@ -1,6 +1,6 @@
 [package]
 name = "duallutils"
-version = "3.4.2"
+version = "3.4.3"
 authors = ["silvioprog <silvioprog@gmail.com>"]
 edition = "2018"
 
@@ -21,4 +21,4 @@ sysinfo = "^0.14"
 glob = "^0.3"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "^0.3", features = ["datetimeapi", "sysinfoapi", "winerror"] }
+winapi = { version = "^0.3", features = ["datetimeapi", "sysinfoapi", "winerror", "tlhelp32"] }
