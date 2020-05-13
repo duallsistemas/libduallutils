@@ -47,7 +47,7 @@ pub unsafe fn datetime_set(
 pub unsafe fn terminate(process_name: *const c_char) -> c_int {
     let handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if handle == INVALID_HANDLE_VALUE {
-        return -1;
+        return -4;
     }
     let mut process_entry: PROCESSENTRY32W = PROCESSENTRY32W {
         dwSize: mem::size_of::<PROCESSENTRY32W>() as u32,
@@ -65,33 +65,29 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
         match Process32FirstW(handle, &mut process_entry) {
             1 => loop {
                 match OsString::from_wide(&process_entry.szExeFile).into_string() {
-                    Ok(ref s) => match Path::new(&s.to_lowercase()).file_stem() {
+                    Ok(s) => match Path::new(&s).file_stem() {
                         Some(name) => {
-                            if name.to_string_lossy()
-                                == CStr::from_ptr(process_name).to_string_lossy()
+                            if name.to_string_lossy().to_ascii_lowercase()
+                                == CStr::from_ptr(process_name)
+                                    .to_string_lossy()
+                                    .to_ascii_lowercase()
                             {
                                 let process =
                                     OpenProcess(PROCESS_TERMINATE, 0, process_entry.th32ProcessID);
-                                if process == std::ptr::null_mut() {
-                                    return -4;
+                                if process != std::ptr::null_mut() {
+                                    if TerminateProcess(process, 0) > 0 {
+                                        CloseHandle(process);
+                                        return 0;
+                                    }
+                                    if GetLastError() == ERROR_ACCESS_DENIED {
+                                        return -3;
+                                    }
                                 }
-                                let terminated = TerminateProcess(process, 0) > 0;
-                                CloseHandle(process);
-                                if !terminated {
-                                    return if GetLastError() == ERROR_ACCESS_DENIED {
-                                        -3
-                                    } else {
-                                        0
-                                    };
-                                }
-                                return -4;
                             }
                         }
                         None => {}
                     },
-                    Err(_) => {
-                        return -4;
-                    }
+                    Err(_) => {}
                 }
                 if Process32NextW(handle, &mut process_entry) != 1 {
                     return -2;
@@ -99,7 +95,8 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
             },
             0 => -2,
             _ => -4,
-        }
+        };
+        -4
     };
     CloseHandle(handle);
     ret
