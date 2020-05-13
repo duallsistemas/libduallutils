@@ -44,11 +44,6 @@ type
   TdLockKeys = (lkCapitalLock = DU_LK_CAPSLOCK, lkNumberLock = DU_LK_NUMLOCK,
     lkScrollingLock = DU_LK_SCROLLLOCK);
 
-  { TdSignals }
-
-  TdSignals = (sigHangup, sigInterrupt, sigQuit, sigIllegal, sigAbort, sigKill,
-    sigUser1, sigSegv, sigUser2, sigPipe, sigAlarm, sigTerm);
-
   { dUtils }
 
   dUtils = packed record
@@ -93,8 +88,7 @@ type
     class procedure SetDateTime(AYear, AMonth, ADay, AHour, AMinute,
       ASecond: Word); overload; static;
     class procedure SetDateTime(const ADateTime: TDateTime); overload; static;
-    class function KillAll(const AProcessName: string;
-      ASignal: TdSignals = sigTerm): Boolean; overload; static;
+    class function Terminate(const AProcessName: string): Boolean; static;
     class function DelTree(const APattern: string): Boolean; static;
   end;
 
@@ -524,15 +518,13 @@ begin
   dUtils.SetDateTime(Y, M, D, H, N, S);
 end;
 
-class function dUtils.KillAll(const AProcessName: string;
-  ASignal: TdSignals): Boolean;
+class function dUtils.Terminate(const AProcessName: string): Boolean;
 var
   M: TMarshaller;
   R: cint;
 begin
   libduallutils.Check;
-  R := libduallutils.du_killall(M.ToCNullableString(AProcessName),
-    DU_SIGNALS(ASignal));
+  R := libduallutils.du_terminate(M.ToCNullableString(AProcessName));
   case R of
     -1: RaiseInvalidFunctionArgument;
     -2: Exit(False);

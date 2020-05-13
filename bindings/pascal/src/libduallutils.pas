@@ -112,7 +112,7 @@ var
     minute: cint; second: cint): cint; cdecl;
   du_lockkey_set: procedure(key: DU_LOCKKEY; enabled: cbool); cdecl;
   du_lockkey_state: function(key: DU_LOCKKEY): cbool; cdecl;
-  du_killall: function(const process_name: Pcchar): cint; cdecl;
+  du_terminate: function(const process_name: Pcchar): cint; cdecl;
   du_deltree: function(const pattern: Pcchar): cint; cdecl;
 
 function TryLoad(const ALibraryName: TFileName): Boolean;
@@ -158,7 +158,7 @@ begin
     du_lockkey_set := GetProcAddress(GLibHandle, 'du_lockkey_set');
     du_lockkey_state := GetProcAddress(GLibHandle, 'du_lockkey_state');
     du_datetime_set := GetProcAddress(GLibHandle, 'du_datetime_set');
-    du_killall := GetProcAddress(GLibHandle, 'du_killall');
+    du_terminate := GetProcAddress(GLibHandle, 'du_terminate');
     du_deltree := GetProcAddress(GLibHandle, 'du_deltree');
     Result := True;
   finally
@@ -202,7 +202,7 @@ begin
     du_lockkey_set := nil;
     du_lockkey_state := nil;
     du_datetime_set := nil;
-    du_killall := nil;
+    du_terminate := nil;
     du_deltree := nil;
   finally
     GCS.Release;
