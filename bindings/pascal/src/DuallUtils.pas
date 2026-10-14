@@ -74,6 +74,8 @@ type
       out ABytes: TBytes; out AOSError: Integer): Integer; static;
     class function LegacyWriteHandle(AHandle: NativeUInt; const ABytes: TBytes;
       out AOSError: Integer): Integer; static;
+    { Abre uma busca streaming. O chamador deve fechar AOwner em try/finally,
+      inclusive quando LegacyFindNext ou SetLength levantar. }
     class function LegacyFindOpen(const AMask, ADirectory, APattern: UnicodeString;
       AAttrs: Integer; out AOwner: Pointer): Integer; static;
     class function LegacyFindNext(AOwner: Pointer; out AName: UnicodeString;
@@ -457,7 +459,9 @@ begin
   LRequired := 0;
   Result := libduallutils.du_find_next_legacy(AOwner, nil, 0, @LRequired, @AMTime, @AAttrs);
   if Result <> 0 then Exit;
-  if LRequired > NativeUInt(MaxInt) then RaiseInvalidFunctionArgument;
+  // Nao levantar excecao com o owner aberto: um chamador sem try/finally
+  // perderia o handle. Devolve -1 para que ele feche explicitamente.
+  if LRequired > NativeUInt(MaxInt) then Exit(-1);
   SetLength(AName, LRequired);
   Result := libduallutils.du_find_next_legacy(AOwner, PWord(PWideChar(AName)), Length(AName),
     @LRequired, @AMTime, @AAttrs);

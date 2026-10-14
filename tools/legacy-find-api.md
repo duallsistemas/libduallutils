@@ -56,7 +56,9 @@ flags. Modification time is the raw 64-bit UTC FILETIME bit pattern; the Delphi
 adapter assigns it to TSearchRec.FindData.ftLastWriteTime so the RTL TimeStamp
 property retains the original local-time conversion.
 
-Linux uses opendir/readdir in native order and fnmatch with flags 0. The caller
+Linux uses opendir/readdir in native order and fnmatch with FNM_CASEFOLD, so
+matching is case-insensitive like Windows FindFirstFileW; this approximates the
+Delphi RTL matcher rather than copying it byte for byte. The caller
 supplies the directory with a trailing separator and the filename pattern;
 when ExtractFilePath is empty, the Delphi adapter supplies the current directory.
 Paths and patterns are converted from UTF-16 to UTF-8, replacing malformed

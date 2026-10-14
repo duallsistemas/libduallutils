@@ -86,8 +86,16 @@ unsafe fn apply(op: u32, path: &[u16], value: *mut i64) -> i32 {
             *value = if fd < 0 {
                 1
             } else {
+                // Linux nao tem share modes (fmShareExclusive): aproxima o probe
+                // exclusivo do Windows com um lock advisory nao bloqueante. Detecta
+                // apenas concorrentes que tambem usam flock; o close libera o lock.
+                let in_use = libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) != 0;
                 libc::close(fd);
-                0
+                if in_use {
+                    1
+                } else {
+                    0
+                }
             };
             0
         }
@@ -95,7 +103,8 @@ unsafe fn apply(op: u32, path: &[u16], value: *mut i64) -> i32 {
     }
 }
 
-/// op1 metadata size, op2 DeleteFile/unlink, op3 exclusive-read open probe.
+/// op1 metadata size, op2 DeleteFile/unlink, op3 exclusive-read open probe
+/// (Windows share 0; Linux advisory flock, detects only cooperating lockers).
 /// 0 success; -1 invalid argument/op; -2 OS failure; -3 caught panic.
 /// Value is required for ops1/3 and unchanged on failure; unused for op2.
 /// Input must point to valid aligned UTF-16 units; an embedded NUL ends the path.

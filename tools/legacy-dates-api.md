@@ -24,6 +24,8 @@ range semantics (32 bits on Win64, 64 bits in this Delphi Linux64 consumer). The
 
 `du_wait_writable_legacy(path, length, result)` returns 0 with a byte result:
 1 if the read-only check stops, 0 after 101 iterations with 100ms sleeps each.
+It blocks the calling thread for up to ~10.1s with no cancellation; do not call
+it from a UI thread without moving it to a worker.
 There is no existence guard in Rust; the dUtils facade retains its missing-file
 return true. The Windows probe reads FILE_ATTRIBUTE_READONLY and follows a
 resolvable reparse target. A missing initial path reports not read-only. Linux

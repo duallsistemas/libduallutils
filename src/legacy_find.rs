@@ -210,6 +210,9 @@ mod platform {
     use super::Record;
     use std::ffi::{CStr, CString};
 
+    // glibc FNM_CASEFOLD (extensao GNU): FindFirst do Delphi e case-insensitive.
+    const FNM_CASEFOLD: libc::c_int = 1 << 4;
+
     pub struct Search {
         handle: *mut libc::DIR,
         directory: String,
@@ -253,7 +256,7 @@ mod platform {
                         };
                     }
                     let raw = CStr::from_ptr((*entry).d_name.as_ptr());
-                    if libc::fnmatch(self.pattern.as_ptr(), raw.as_ptr(), 0) != 0 {
+                    if libc::fnmatch(self.pattern.as_ptr(), raw.as_ptr(), FNM_CASEFOLD) != 0 {
                         continue;
                     }
                     let name = String::from_utf8_lossy(raw.to_bytes());
