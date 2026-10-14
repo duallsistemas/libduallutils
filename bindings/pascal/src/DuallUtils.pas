@@ -57,6 +57,37 @@ type
     class function TryMD5File(const AFileName: TFileName;
       out AMD5: string): Boolean; static;
     class function MD5File(const AFileName: TFileName): string; static;
+    class function TryLegacyMD5File(const AFileName: TFileName;
+      out AMD5: string): Boolean; static;
+    class function LegacyMD5File(const AFileName: TFileName): string; static;
+    class function RunCommandLegacy(const ACommand, AParams: string;
+      AWaiting: Boolean; AWindowState: Word = 0): Integer; static;
+    class function OpenURLLegacy(const AURL: string): Integer; static;
+    class function LegacyText(AOp: Cardinal; const A, B: UnicodeString;
+      N: Integer = 0; C: Word = 0): UnicodeString; static;
+    class function LegacyReplace(const A, AOld, AReplacement: UnicodeString): UnicodeString; static;
+    class function LegacyFile(AOp: Cardinal; const APath: UnicodeString;
+      out AValue: Int64): Boolean; static;
+    class function LegacyReadFile(const APath: UnicodeString;
+      out ABytes: TBytes; out AOSError: Integer): Integer; static;
+    class function LegacyReadHandle(AHandle: NativeUInt; ASize: UInt64;
+      out ABytes: TBytes; out AOSError: Integer): Integer; static;
+    class function LegacyWriteHandle(AHandle: NativeUInt; const ABytes: TBytes;
+      out AOSError: Integer): Integer; static;
+    { Abre uma busca streaming. O chamador deve fechar AOwner em try/finally,
+      inclusive quando LegacyFindNext ou SetLength levantar. }
+    class function LegacyFindOpen(const AMask, ADirectory, APattern: UnicodeString;
+      AAttrs: Integer; out AOwner: Pointer): Integer; static;
+    class function LegacyFindNext(AOwner: Pointer; out AName: UnicodeString;
+      out AMTime: Int64; out AAttrs: Cardinal): Integer; static;
+    class procedure LegacyFindClose(AOwner: Pointer); static;
+    class function LegacyFileAge(const APath: UnicodeString; out ARaw: Int64): Boolean; static;
+    class function LegacySetFileDate(const APath: UnicodeString; APackedDate: Int64): Integer; static;
+    class function LegacyWaitWritable(const APath: UnicodeString): Boolean; static;
+    class function LegacyMath(AOp: Cardinal; A, B: Double;
+      ADec, AKind: Integer): Double; static;
+    class function LegacyStringToFloatDef(const S: UnicodeString;
+      ADefault: Double): Double; static;
     class function SHA1(const S: string): string; static;
     class function TrySHA1File(const AFileName: TFileName;
       out ASHA1: string): Boolean; static;
@@ -93,6 +124,9 @@ type
   end;
 
 implementation
+
+uses
+  Math;
 
 procedure RaiseInvalidFunctionArgument; inline;
 begin
@@ -217,6 +251,372 @@ class function dUtils.MD5File(const AFileName: TFileName): string;
 begin
   if not TryMD5File(AFileName, Result) then
     raise EFileNotFoundException.CreateFmt(SFileNotFound, [AFileName]);
+end;
+
+class function dUtils.TryLegacyMD5File(const AFileName: TFileName;
+  out AMD5: string): Boolean;
+var
+  M: TMarshaller;
+  A: array[0..MD5_SIZE] of cchar;
+  R: cint;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_md5_file_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.TryLegacyMD5File: missing export');
+  AMD5 := '';
+  A[0] := 0;
+  R := libduallutils.du_md5_file_legacy(M.ToCString(AFileName), @A[0], SizeOf(A));
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.TryLegacyMD5File');
+  end;
+  AMD5 := TMarshal.ToString(@A[0]);
+  Result := True;
+end;
+
+class function dUtils.LegacyMD5File(const AFileName: TFileName): string;
+begin
+  if not TryLegacyMD5File(AFileName, Result) then
+    Result := '';
+end;
+
+class function dUtils.RunCommandLegacy(const ACommand, AParams: string;
+  AWaiting: Boolean; AWindowState: Word): Integer;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_run_command_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.RunCommandLegacy: missing export');
+  Result := libduallutils.du_run_command_legacy(M.ToCString(ACommand),
+    M.ToCString(AParams), AWaiting, AWindowState);
+end;
+
+class function dUtils.OpenURLLegacy(const AURL: string): Integer;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_open_url_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.OpenURLLegacy: missing export');
+  Result := libduallutils.du_open_url_legacy(M.ToCString(AURL));
+end;
+
+procedure CheckLegacyStatus(AStatus: Integer);
+begin
+  case AStatus of
+    0: Exit;
+    -1: RaiseInvalidFunctionArgument;
+    -2: raise EConvertError.Create('Invalid integer character');
+  else
+    RaiseUnknownErrorInFunction('dUtils.LegacyText');
+  end;
+end;
+
+class function dUtils.LegacyText(AOp: Cardinal; const A, B: UnicodeString;
+  N: Integer; C: Word): UnicodeString;
+var
+  LRequired: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_text) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyText: missing export');
+  LRequired := 0;
+  CheckLegacyStatus(libduallutils.du_legacy_text(AOp, PWord(PWideChar(A)), Length(A),
+    PWord(PWideChar(B)), Length(B), N, C, nil, 0, @LRequired));
+  if LRequired > NativeUInt(MaxInt) then
+    RaiseInvalidFunctionArgument;
+  SetLength(Result, LRequired);
+  if LRequired > 0 then
+    CheckLegacyStatus(libduallutils.du_legacy_text(AOp, PWord(PWideChar(A)), Length(A),
+      PWord(PWideChar(B)), Length(B), N, C, PWord(PWideChar(Result)), Length(Result), @LRequired));
+end;
+
+class function dUtils.LegacyReplace(const A, AOld, AReplacement: UnicodeString): UnicodeString;
+var
+  LRequired: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_replace) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyReplace: missing export');
+  LRequired := 0;
+  CheckLegacyStatus(libduallutils.du_legacy_replace(PWord(PWideChar(A)), Length(A),
+    PWord(PWideChar(AOld)), Length(AOld), PWord(PWideChar(AReplacement)), Length(AReplacement),
+    nil, 0, @LRequired));
+  if LRequired > NativeUInt(MaxInt) then
+    RaiseInvalidFunctionArgument;
+  SetLength(Result, LRequired);
+  if LRequired > 0 then
+    CheckLegacyStatus(libduallutils.du_legacy_replace(PWord(PWideChar(A)), Length(A),
+      PWord(PWideChar(AOld)), Length(AOld), PWord(PWideChar(AReplacement)), Length(AReplacement),
+      PWord(PWideChar(Result)), Length(Result), @LRequired));
+end;
+
+class function dUtils.LegacyFile(AOp: Cardinal; const APath: UnicodeString;
+  out AValue: Int64): Boolean;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_file) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFile: missing export');
+  LStatus := libduallutils.du_legacy_file(AOp, PWord(PWideChar(APath)), Length(APath), @AValue);
+  if LStatus = -2 then
+    Exit(False);
+  CheckLegacyStatus(LStatus);
+  Result := True;
+end;
+
+class function dUtils.LegacyReadFile(const APath: UnicodeString;
+  out ABytes: TBytes; out AOSError: Integer): Integer;
+var
+  LData, LOwner: Pointer;
+  LLength: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_read_file_legacy) or
+    not Assigned(libduallutils.du_read_file_dispose) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyReadFile: missing export');
+  ABytes := nil;
+  AOSError := 0;
+  LData := nil;
+  LOwner := nil;
+  LLength := 0;
+  Result := libduallutils.du_read_file_legacy(PWord(PWideChar(APath)), Length(APath),
+    @LData, @LLength, @LOwner, @AOSError);
+  try
+    if Result <> 0 then
+      Exit;
+    if LLength > NativeUInt(MaxInt) then
+      RaiseInvalidFunctionArgument;
+    SetLength(ABytes, LLength);
+    if LLength > 0 then
+      Move(LData^, ABytes[0], LLength);
+  finally
+    libduallutils.du_read_file_dispose(LOwner);
+  end;
+end;
+
+class function dUtils.LegacyReadHandle(AHandle: NativeUInt; ASize: UInt64;
+  out ABytes: TBytes; out AOSError: Integer): Integer;
+var
+  LData, LOwner: Pointer;
+  LLength: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_read_handle_legacy) or
+    not Assigned(libduallutils.du_read_file_dispose) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyReadHandle: missing export');
+  ABytes := nil;
+  AOSError := 0;
+  LData := nil;
+  LOwner := nil;
+  LLength := 0;
+  Result := libduallutils.du_read_handle_legacy(AHandle, ASize,
+    @LData, @LLength, @LOwner, @AOSError);
+  try
+    if Result <> 0 then Exit;
+    if LLength > NativeUInt(MaxInt) then RaiseInvalidFunctionArgument;
+    SetLength(ABytes, LLength);
+    if LLength > 0 then Move(LData^, ABytes[0], LLength);
+  finally
+    libduallutils.du_read_file_dispose(LOwner);
+  end;
+end;
+
+class function dUtils.LegacyWriteHandle(AHandle: NativeUInt; const ABytes: TBytes;
+  out AOSError: Integer): Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_write_handle_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyWriteHandle: missing export');
+  AOSError := 0;
+  Result := libduallutils.du_write_handle_legacy(AHandle, Pointer(ABytes), Length(ABytes), @AOSError);
+end;
+
+class function dUtils.LegacyFindOpen(const AMask, ADirectory, APattern: UnicodeString;
+  AAttrs: Integer; out AOwner: Pointer): Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_find_open_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFindOpen: missing export');
+  AOwner := nil;
+  Result := libduallutils.du_find_open_legacy(PWord(PWideChar(AMask)), Length(AMask),
+    PWord(PWideChar(ADirectory)), Length(ADirectory), PWord(PWideChar(APattern)), Length(APattern),
+    AAttrs, @AOwner);
+end;
+
+class function dUtils.LegacyFindNext(AOwner: Pointer; out AName: UnicodeString;
+  out AMTime: Int64; out AAttrs: Cardinal): Integer;
+var
+  LRequired: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_find_next_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFindNext: missing export');
+  AName := '';
+  LRequired := 0;
+  Result := libduallutils.du_find_next_legacy(AOwner, nil, 0, @LRequired, @AMTime, @AAttrs);
+  if Result <> 0 then Exit;
+  // Nao levantar excecao com o owner aberto: um chamador sem try/finally
+  // perderia o handle. Devolve -1 para que ele feche explicitamente.
+  if LRequired > NativeUInt(MaxInt) then Exit(-1);
+  SetLength(AName, LRequired);
+  Result := libduallutils.du_find_next_legacy(AOwner, PWord(PWideChar(AName)), Length(AName),
+    @LRequired, @AMTime, @AAttrs);
+end;
+
+class procedure dUtils.LegacyFindClose(AOwner: Pointer);
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_find_close_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFindClose: missing export');
+  libduallutils.du_find_close_legacy(AOwner);
+end;
+
+class function dUtils.LegacyFileAge(const APath: UnicodeString; out ARaw: Int64): Boolean;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_file_age_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFileAge: missing export');
+  LStatus := libduallutils.du_file_age_legacy(PWord(PWideChar(APath)), Length(APath), @ARaw);
+  if LStatus = -2 then Exit(False);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyFileAge');
+  Result := True;
+end;
+
+class function dUtils.LegacySetFileDate(const APath: UnicodeString; APackedDate: Int64): Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_set_file_date_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacySetFileDate: missing export');
+  Result := libduallutils.du_set_file_date_legacy(PWord(PWideChar(APath)), Length(APath), APackedDate);
+end;
+
+class function dUtils.LegacyWaitWritable(const APath: UnicodeString): Boolean;
+var
+  LStatus: Integer;
+  LWritable: Byte;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_wait_writable_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyWaitWritable: missing export');
+  LWritable := 0;
+  LStatus := libduallutils.du_wait_writable_legacy(PWord(PWideChar(APath)), Length(APath), @LWritable);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyWaitWritable');
+  Result := LWritable <> 0;
+end;
+
+{ Types for consumer-owned callback context. ABI declarations must use cdecl. }
+type
+  TLegacyMathError = record
+    ErrorClass: ExceptClass;
+    ErrorMessage: string;
+  end;
+  PLegacyMathError = ^TLegacyMathError;
+
+function LegacyRTLMathCallback(AOp: Cardinal; A, B: Double; N: Integer;
+  I: Int64; AValue: PDouble; AInteger: PInt64; AContext: Pointer): Integer; cdecl;
+begin
+  Result := 0;
+  try
+    AValue^ := 0;
+    AInteger^ := 0;
+    case AOp of
+      1: AValue^ := IntPower(10.0, N);
+      2: AInteger^ := Ord(Frac(Abs(A)) > 0);
+      3: AValue^ := Frac(A);
+      4: AValue^ := Int(A);
+      5: AValue^ := A + B;
+      6: AValue^ := A * B;
+      7: AValue^ := A / B;
+      8: AInteger^ := Trunc(SimpleRoundTo(Frac(A) * 100, -9));
+      9: AInteger^ := Ord(CompareValue(A, 0.0, 0.0001));
+      10: AValue^ := SimpleRoundTo(I / Max(A, 1), -9);
+      11: AInteger^ := Round(Frac(I / 10) * 10);
+      12: AInteger^ := Ord(CompareValue(Frac(A * 10), 0, 0.0001));
+      13: AInteger^ := Round(SimpleRoundTo(Frac(I / 10), -9) * 10);
+      14:
+        if A < 0 then AValue^ := Int((A / B) - 0.05) * B
+        else AValue^ := Int((A / B) + 0.05) * B;
+      15: AInteger^ := Ord(Abs(A) > 0);
+      16:
+        if N = 1 then AInteger^ := Ord(IsZero(A, 0.001))
+        else AInteger^ := Ord(IsZero(A, 0.0001));
+      17: AInteger^ := Ord(SameValue(A, B, 0.00001));
+      18: AInteger^ := Trunc(A);
+      19: AInteger^ := Ord(IsZero(I, 0.0001));
+      20: AValue^ := IntPower(10, N);
+    else
+      raise EArgumentException.Create('Unknown legacy math primitive');
+    end;
+  except
+    on E: Exception do
+    begin
+      if AContext <> nil then
+      begin
+        PLegacyMathError(AContext)^.ErrorClass := ExceptClass(E.ClassType);
+        PLegacyMathError(AContext)^.ErrorMessage := E.Message;
+      end;
+      Result := 1;
+    end;
+  end;
+end;
+
+function LegacyRTLFloatParser(AContext: Pointer; AInput: PWord;
+  ALength: NativeUInt; AValue: PDouble): Integer; cdecl;
+var
+  LText: UnicodeString;
+begin
+  Result := 0;
+  try
+    SetString(LText, PWideChar(AInput), ALength);
+    AValue^ := StrToFloat(LText);
+  except
+    on E: Exception do Result := 1;
+  end;
+end;
+
+class function dUtils.LegacyMath(AOp: Cardinal; A, B: Double;
+  ADec, AKind: Integer): Double;
+var
+  LContext: TLegacyMathError;
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_math_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyMath: missing export');
+  LContext.ErrorClass := nil;
+  LContext.ErrorMessage := '';
+  LStatus := libduallutils.du_math_legacy(AOp, A, B, ADec, AKind,
+    LegacyRTLMathCallback, @LContext, @Result);
+  if LStatus = -2 then
+  begin
+    if LContext.ErrorClass <> nil then
+      raise LContext.ErrorClass.Create(LContext.ErrorMessage);
+    RaiseUnknownErrorInFunction('dUtils.LegacyMath: missing callback error');
+  end;
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyMath');
+end;
+
+class function dUtils.LegacyStringToFloatDef(const S: UnicodeString;
+  ADefault: Double): Double;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_string_to_float_def_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyStringToFloatDef: missing export');
+  LStatus := libduallutils.du_string_to_float_def_legacy(PWord(PWideChar(S)), Length(S),
+    Word(FormatSettings.DecimalSeparator), ADefault, LegacyRTLFloatParser, nil, @Result);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyStringToFloatDef');
 end;
 
 class function dUtils.SHA1(const S: string): string;

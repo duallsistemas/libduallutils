@@ -135,3 +135,77 @@ fn lock_keys_without_display_do_not_crash() {
         assert!(!du_lockkey_state(DU_LOCKKEY::DU_LK_CAPSLOCK));
     }
 }
+
+#[test]
+fn legacy_md5_path_buffer_and_errors() {
+    let path = std::env::temp_dir().join(format!("duall legacy ç {}.txt", std::process::id()));
+    fs::write(&path, b"abc123").unwrap();
+    let name = CString::new(path.to_str().unwrap()).unwrap();
+    let mut hash = [b'X' as c_char; 35];
+    unsafe {
+        assert_eq!(du_md5_file_legacy(name.as_ptr(), hash.as_mut_ptr(), 4), -1);
+        assert_eq!(hash[0], 0);
+        assert_eq!(hash[4], b'X' as c_char);
+        assert_eq!(du_md5_file_legacy(name.as_ptr(), hash.as_mut_ptr(), 33), 0);
+        assert_eq!(from_c_str!(hash.as_ptr()).unwrap(), "e99a18c428cb38d5f260853678922e03");
+        assert_eq!(hash[33], b'X' as c_char);
+        let invalid = [0xffu8, 0];
+        assert_eq!(du_md5_file_legacy(invalid.as_ptr() as *const c_char, hash.as_mut_ptr(), 33), -1);
+        assert_eq!(hash[0], 0);
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let writer = fs::OpenOptions::new().write(true).share_mode(3).open(&path).unwrap();
+            assert_eq!(du_md5_file_legacy(name.as_ptr(), hash.as_mut_ptr(), 33), -3);
+            drop(writer);
+        }
+        fs::remove_file(&path).unwrap();
+        assert_eq!(du_md5_file_legacy(name.as_ptr(), hash.as_mut_ptr(), 33), -2);
+        assert_eq!(hash[0], 0);
+    }
+}
+
+#[test]
+fn legacy_process_arguments_validate_utf8() {
+    let invalid = [0xffu8, 0];
+    let empty = CString::new("").unwrap();
+    unsafe {
+        assert_eq!(du_run_command_legacy(ptr::null(), empty.as_ptr(), true, 0), -1);
+        assert_eq!(du_run_command_legacy(invalid.as_ptr() as *const c_char, empty.as_ptr(), false, 0), -1);
+        assert_eq!(du_run_command_legacy(empty.as_ptr(), invalid.as_ptr() as *const c_char, true, 0), -1);
+        assert_eq!(du_open_url_legacy(ptr::null()), -1);
+        assert_eq!(du_open_url_legacy(invalid.as_ptr() as *const c_char), -1);
+    }
+}
+
+#[test]
+fn legacy_wait_preserves_raw_quotes_and_exit_behavior() {
+    let path = std::env::temp_dir().join(format!("duall legacy args {}.txt", std::process::id()));
+    #[cfg(windows)]
+    let (program, args) = (std::env::var("COMSPEC").unwrap(), format!(" /d /s /c \"echo quoted value>\"{}\" & exit /b 7\" ", path.display()));
+    #[cfg(target_os = "linux")]
+    let (program, args) = ("printf".to_owned(), format!(" 'quoted value' > '{}' ; exit 7 ", path.display()));
+    let command = CString::new(format!(" {} ", program)).unwrap();
+    let args = CString::new(args).unwrap();
+    assert_eq!(unsafe { du_run_command_legacy(command.as_ptr(), args.as_ptr(), true, 0) }, 0);
+    assert_eq!(fs::read_to_string(&path).unwrap().trim(), "quoted value");
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn legacy_async_launches_safe_fixture() {
+    let path = std::env::temp_dir().join(format!("duall legacy async {}.txt", std::process::id()));
+    #[cfg(windows)]
+    let (program, args) = (std::env::var("COMSPEC").unwrap(), format!("/d /s /c \"echo async>\"{}\"\"", path.display()));
+    #[cfg(target_os = "linux")]
+    let (program, args) = ("printf".to_owned(), format!(" async > '{}'", path.display()));
+    let command = CString::new(program).unwrap();
+    let args = CString::new(args).unwrap();
+    assert_eq!(unsafe { du_run_command_legacy(command.as_ptr(), args.as_ptr(), false, 0) }, 0);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !path.exists() && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(20)); }
+    assert!(path.exists());
+    // Wait until the child has closed its output before removing the fixture.
+    while fs::remove_file(&path).is_err() && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(20)); }
+    assert!(!path.exists());
+}
