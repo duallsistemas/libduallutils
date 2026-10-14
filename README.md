@@ -23,6 +23,11 @@ exit code `-1`. Valid UTF-8 is preserved. Programs producing other encodings mus
 be configured for UTF-8; the interface does not guess encodings. Free successful
 output strings with `du_dispose`.
 
+`du_spawn` requires a non-null exit-code pointer only when `waiting` is true. When
+a pointer is supplied it is initialized to `-1` before the child starts, including
+the non-waiting case. A child terminated by a signal (`waiting` true) returns `-3`
+and the exit code stays `-1`.
+
 `du_deltree` returns `-1` for an invalid pattern, `-2` for no matches, and `-3`
 for traversal or removal failures. Earlier matches may already have been removed
 before a later failure; deletion is not transactional. `sysinfo` is a Linux-only

@@ -215,14 +215,15 @@ pub unsafe extern "C" fn du_sha1_file(
 /// * `[in] args` - Arguments to pass to the program as array of C-like string.
 /// * `[in] envs` - Environment variables to pass to the program as array of C-like string.
 /// * `[in] waiting` - Waiting for the program to exit completely.
-/// * `[in,out] exitcode` - Exit code of the process.
+/// * `[in,out] exitcode` - Exit code of the process. Required when `waiting` is
+///   true; initialized to `-1` when non-null, even if `waiting` is false.
 ///
 /// # Returns
 ///
 /// * `0` - Success.
 /// * `-1` - Invalid argument.
 /// * `-2` - Program not found.
-/// * `-3` - Unknown error.
+/// * `-3` - Unknown error or signal-terminated child (`waiting` true, code `-1`).
 #[no_mangle]
 pub unsafe extern "C" fn du_spawn(
     program: *const c_char,
