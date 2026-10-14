@@ -79,6 +79,9 @@ type
     class function LegacyFindNext(AOwner: Pointer; out AName: UnicodeString;
       out AMTime: Int64; out AAttrs: Cardinal): Integer; static;
     class procedure LegacyFindClose(AOwner: Pointer); static;
+    class function LegacyFileAge(const APath: UnicodeString; out ARaw: Int64): Boolean; static;
+    class function LegacySetFileDate(const APath: UnicodeString; APackedDate: Int64): Integer; static;
+    class function LegacyWaitWritable(const APath: UnicodeString): Boolean; static;
     class function SHA1(const S: string): string; static;
     class function TrySHA1File(const AFileName: TFileName;
       out ASHA1: string): Boolean; static;
@@ -459,6 +462,43 @@ begin
   if not Assigned(libduallutils.du_find_close_legacy) then
     RaiseUnknownErrorInFunction('dUtils.LegacyFindClose: missing export');
   libduallutils.du_find_close_legacy(AOwner);
+end;
+
+class function dUtils.LegacyFileAge(const APath: UnicodeString; out ARaw: Int64): Boolean;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_file_age_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFileAge: missing export');
+  LStatus := libduallutils.du_file_age_legacy(PWord(PWideChar(APath)), Length(APath), @ARaw);
+  if LStatus = -2 then Exit(False);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyFileAge');
+  Result := True;
+end;
+
+class function dUtils.LegacySetFileDate(const APath: UnicodeString; APackedDate: Int64): Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_set_file_date_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacySetFileDate: missing export');
+  Result := libduallutils.du_set_file_date_legacy(PWord(PWideChar(APath)), Length(APath), APackedDate);
+end;
+
+class function dUtils.LegacyWaitWritable(const APath: UnicodeString): Boolean;
+var
+  LStatus: Integer;
+  LWritable: Byte;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_wait_writable_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyWaitWritable: missing export');
+  LWritable := 0;
+  LStatus := libduallutils.du_wait_writable_legacy(PWord(PWideChar(APath)), Length(APath), @LWritable);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyWaitWritable');
+  Result := LWritable <> 0;
 end;
 
 class function dUtils.SHA1(const S: string): string;
