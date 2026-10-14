@@ -30,6 +30,9 @@ use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot
 
 mod utils;
 
+#[cfg(test)]
+mod regression;
+
 #[cfg(target_os = "windows")]
 const BUFFER_SIZE: usize = 4096; /* 4k */
 #[cfg(not(target_os = "windows"))]
@@ -49,7 +52,7 @@ pub unsafe extern "C" fn du_version() -> *const c_char {
 #[no_mangle]
 pub unsafe extern "C" fn du_dispose(cstr: *mut c_char) {
     if !cstr.is_null() {
-        CString::from_raw(cstr);
+        drop(CString::from_raw(cstr));
     }
 }
 
@@ -71,7 +74,7 @@ pub unsafe extern "C" fn du_md5(cstr: *const c_char, md5: *mut c_char, size: siz
         return -1;
     }
     let mut hasher = Md5::new();
-    hasher.input_str(from_c_str!(cstr).unwrap());
+    hasher.input_str(checked_str!(cstr));
     let hash = to_c_str!(hasher.result_str()).unwrap();
     copy_c_str!(hash, md5, size);
     0
@@ -100,7 +103,7 @@ pub unsafe extern "C" fn du_md5_file(
     if filename.is_null() || md5.is_null() || size <= 0 {
         return -1;
     }
-    match File::open(from_c_str!(filename).unwrap()) {
+    match File::open(checked_str!(filename)) {
         Ok(mut file) => {
             let mut hasher = Md5::new();
             let mut buf = [0u8; BUFFER_SIZE];
@@ -110,7 +113,7 @@ pub unsafe extern "C" fn du_md5_file(
                     Err(_) => return -3,
                 };
                 hasher.input(&buf[..n]);
-                if n == 0 || n < BUFFER_SIZE {
+                if n == 0 {
                     break;
                 }
             }
@@ -145,7 +148,7 @@ pub unsafe extern "C" fn du_sha1(cstr: *const c_char, sha1: *mut c_char, size: s
         return -1;
     }
     let mut hasher = Sha1::new();
-    hasher.input_str(from_c_str!(cstr).unwrap());
+    hasher.input_str(checked_str!(cstr));
     let hash = to_c_str!(hasher.result_str()).unwrap();
     copy_c_str!(hash, sha1, size);
     0
@@ -174,7 +177,7 @@ pub unsafe extern "C" fn du_sha1_file(
     if filename.is_null() || sha1.is_null() || size <= 0 {
         return -1;
     }
-    match File::open(from_c_str!(filename).unwrap()) {
+    match File::open(checked_str!(filename)) {
         Ok(mut file) => {
             let mut hasher = Sha1::new();
             let mut buf = [0u8; BUFFER_SIZE];
@@ -184,7 +187,7 @@ pub unsafe extern "C" fn du_sha1_file(
                     Err(_) => return -3,
                 };
                 hasher.input(&buf[..n]);
-                if n == 0 || n < BUFFER_SIZE {
+                if n == 0 {
                     break;
                 }
             }
@@ -227,12 +230,15 @@ pub unsafe extern "C" fn du_spawn(
     waiting: bool,
     exitcode: *mut c_int,
 ) -> c_int {
-    if program.is_null() {
+    if program.is_null() || (waiting && exitcode.is_null()) {
         return -1;
     }
-    let mut cmd = Command::new(from_c_str!(program).unwrap());
+    if !exitcode.is_null() {
+        *exitcode = -1;
+    }
+    let mut cmd = Command::new(checked_str!(program));
     if !workdir.is_null() {
-        cmd.current_dir(from_c_str!(workdir).unwrap());
+        cmd.current_dir(checked_str!(workdir));
     }
     if cfg!(test) {
         cmd.stdout(Stdio::null());
@@ -246,7 +252,7 @@ pub unsafe extern "C" fn du_spawn(
             if env == ptr::null() {
                 break;
             }
-            let pair: Vec<&str> = from_c_str!(env).unwrap().splitn(2, "=").collect();
+            let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
             if pair.len() == 2 {
                 cmd.env(pair.first().unwrap(), pair.last().unwrap());
             }
@@ -255,9 +261,11 @@ pub unsafe extern "C" fn du_spawn(
     match cmd.spawn() {
         Ok(mut child) => {
             if waiting {
-                match child.try_wait() {
-                    Ok(Some(status)) => *exitcode = status.code().unwrap(),
-                    Ok(None) => *exitcode = child.wait().unwrap().code().unwrap(),
+                match child.wait() {
+                    Ok(status) => match status.code() {
+                        Some(code) => *exitcode = code,
+                        None => return -3,
+                    },
                     Err(_) => return -3,
                 }
             }
@@ -300,12 +308,15 @@ pub unsafe extern "C" fn du_execute(
     error: *mut *mut c_char,
     exitcode: *mut c_int,
 ) -> c_int {
-    if program.is_null() {
+    if program.is_null() || output.is_null() || error.is_null() || exitcode.is_null() {
         return -1;
     }
-    let mut cmd = Command::new(from_c_str!(program).unwrap());
+    *output = ptr::null_mut();
+    *error = ptr::null_mut();
+    *exitcode = -1;
+    let mut cmd = Command::new(checked_str!(program));
     if !workdir.is_null() {
-        cmd.current_dir(from_c_str!(workdir).unwrap());
+        cmd.current_dir(checked_str!(workdir));
     }
     if !args.is_null() {
         cmd.args(&from_c_array!(args));
@@ -316,7 +327,7 @@ pub unsafe extern "C" fn du_execute(
             if env == ptr::null() {
                 break;
             }
-            let pair: Vec<&str> = from_c_str!(env).unwrap().splitn(2, "=").collect();
+            let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
             if pair.len() == 2 {
                 cmd.env(pair.first().unwrap(), pair.last().unwrap());
             }
@@ -324,13 +335,28 @@ pub unsafe extern "C" fn du_execute(
     }
     match cmd.output() {
         Ok(child) => {
-            *output = to_c_str!(String::from_utf8(child.stdout).unwrap())
-                .unwrap()
-                .into_raw();
-            *error = to_c_str!(String::from_utf8(child.stderr).unwrap())
-                .unwrap()
-                .into_raw();
-            *exitcode = child.status.code().unwrap();
+            // Valida ambas as saidas antes de transferir posse ao chamador.
+            let stdout = match String::from_utf8(child.stdout) {
+                Ok(value) => match CString::new(value) {
+                    Ok(value) => value,
+                    Err(_) => return -3,
+                },
+                Err(_) => return -3,
+            };
+            let stderr = match String::from_utf8(child.stderr) {
+                Ok(value) => match CString::new(value) {
+                    Ok(value) => value,
+                    Err(_) => return -3,
+                },
+                Err(_) => return -3,
+            };
+            let code = match child.status.code() {
+                Some(code) => code,
+                None => return -3,
+            };
+            *output = stdout.into_raw();
+            *error = stderr.into_raw();
+            *exitcode = code;
         }
         Err(error) => {
             if error.kind() == NotFound {
@@ -358,7 +384,7 @@ pub unsafe extern "C" fn du_open(path: *const c_char) -> c_int {
     if path.is_null() {
         return -1;
     }
-    match opener::open(from_c_str!(path).unwrap()) {
+    match opener::open(checked_str!(path)) {
         Ok(_) => 0,
         Err(_) => -2,
     }
@@ -381,7 +407,7 @@ pub unsafe extern "C" fn du_once(identifier: *const c_char) -> c_int {
     if identifier.is_null() {
         return -1;
     }
-    match SingleInstance::new(from_c_str!(identifier).unwrap()) {
+    match SingleInstance::new(checked_str!(identifier)) {
         Ok(instance) => {
             static mut RUNNING_INSTANCE: Option<SingleInstance> = None;
             RUNNING_INSTANCE = Some(instance);
@@ -585,6 +611,7 @@ pub unsafe extern "C" fn du_terminate(process_name: *const c_char) -> c_int {
     if process_name.is_null() {
         return -1;
     }
+    let _ = checked_str!(process_name);
     os::terminate(process_name)
 }
 
@@ -606,13 +633,20 @@ pub unsafe extern "C" fn du_deltree(pattern: *const c_char) -> c_int {
         return -1;
     }
     let mut found: c_int = -2;
-    for entry in glob(from_c_str!(pattern).unwrap()).unwrap() {
+    let paths = match glob(checked_str!(pattern)) {
+        Ok(paths) => paths,
+        Err(_) => return -1,
+    };
+    for entry in paths {
         match entry {
             Ok(path) => {
-                if path.is_dir() {
-                    fs::remove_dir_all(path).unwrap_or_default();
+                let result = if path.is_dir() {
+                    fs::remove_dir_all(path)
                 } else {
-                    fs::remove_file(path).unwrap_or_default();
+                    fs::remove_file(path)
+                };
+                if result.is_err() {
+                    return -3;
                 }
                 found = 0;
             }
@@ -879,7 +913,7 @@ mod tests {
                 ),
                 0
             );
-            CString::from_raw(args[0] as *mut c_char);
+            drop(CString::from_raw(args[0] as *mut c_char));
             assert_eq!(code, 0);
             assert_eq!(from_c_str!(output).unwrap().trim(), "My test");
         }

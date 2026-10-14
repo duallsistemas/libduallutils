@@ -43,7 +43,7 @@ pub unsafe fn datetime_set(
 }
 
 pub unsafe fn terminate(process_name: *const c_char) -> c_int {
-    let name = CStr::from_ptr(process_name).to_str().unwrap();
+    let name = match CStr::from_ptr(process_name).to_str() { Ok(name) => name, Err(_) => return -1 };
     let sys = System::new_all();
     for proc in sys.get_process_by_name(name) {
         match sys.get_process(proc.pid()) {
