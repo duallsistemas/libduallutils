@@ -99,3 +99,7 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
     CloseHandle(handle);
     ret
 }
+
+pub fn lockkey_available() -> bool {
+    true
+}

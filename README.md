@@ -7,7 +7,14 @@ Rust library which provides utility features for Duall ERP.
 Input strings must be valid UTF-8, NUL-terminated, and backed by readable memory.
 Output buffers must have room for the entire result including its NUL terminator.
 Invalid UTF-8 and insufficient capacity return `-1`; undersized nonempty buffers
-receive an empty string. Export names and Pascal binding signatures are unchanged.
+receive an empty string. OS error messages of `du_shutdown`, `du_reboot` and
+`du_logout` are the exception: they keep returning `-2` and are truncated on a
+UTF-8 character boundary, always NUL-terminated.
+
+`du_lockkey_set` and `du_lockkey_state` have no error result: without a keyboard
+(Linux without an X11 display) or on OS failure, `set` does nothing and `state`
+returns `false`. The packaging script refuses dirty trees unless `--allow-dirty`
+is passed (never for releases). Export names and Pascal binding signatures are unchanged.
 
 `du_execute` requires non-null output, error and exit-code pointers. Its strings
 are allocated only after both outputs and the exit status have been validated.
@@ -45,7 +52,7 @@ python3 scripts/package_release.py --target x86_64-unknown-linux-gnu
 
 On Windows, use `x86_64-pc-windows-msvc` and set
 `RUSTFLAGS=-Ctarget-feature=+crt-static` before building. Packages in `dist/`
-include bindings, license, the resolved Cargo.lock, BUILD.json and SHA256SUMS;
+include bindings, license, the committed Cargo.lock, BUILD.json and SHA256SUMS;
 each archive has its own `.sha256`. BUILD.json records source revision, dirty
 state, toolchain and, on Linux, SONAME and minimum required glibc. Linux also
 requires the X11 runtime (`libX11.so.6`); keyboard helpers require a working X11

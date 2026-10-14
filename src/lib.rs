@@ -22,7 +22,7 @@ use opener;
 use single_instance::SingleInstance;
 use std::ffi::CString;
 use std::fs::{self, File};
-use std::io::ErrorKind::NotFound;
+use std::io::ErrorKind::{Interrupted, NotFound};
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::ptr;
@@ -110,6 +110,7 @@ pub unsafe extern "C" fn du_md5_file(
             loop {
                 let n = match file.read(&mut buf) {
                     Ok(n) => n,
+                    Err(ref error) if error.kind() == Interrupted => continue,
                     Err(_) => return -3,
                 };
                 hasher.input(&buf[..n]);
@@ -184,6 +185,7 @@ pub unsafe extern "C" fn du_sha1_file(
             loop {
                 let n = match file.read(&mut buf) {
                     Ok(n) => n,
+                    Err(ref error) if error.kind() == Interrupted => continue,
                     Err(_) => return -3,
                 };
                 hasher.input(&buf[..n]);
@@ -452,8 +454,7 @@ pub unsafe extern "C" fn du_shutdown(
     match result {
         Ok(_) => 0,
         Err(error) => {
-            let msg = to_c_str!(error.to_string()).unwrap();
-            copy_c_str!(msg, error_msg, error_size);
+            utils::copy_error_msg(&error.to_string(), error_msg, error_size);
             -2
         }
     }
@@ -485,8 +486,7 @@ pub unsafe extern "C" fn du_reboot(
     match result {
         Ok(_) => 0,
         Err(error) => {
-            let msg = to_c_str!(error.to_string()).unwrap();
-            copy_c_str!(msg, error_msg, error_size);
+            utils::copy_error_msg(&error.to_string(), error_msg, error_size);
             -2
         }
     }
@@ -518,8 +518,7 @@ pub unsafe extern "C" fn du_logout(
     match result {
         Ok(_) => 0,
         Err(error) => {
-            let msg = to_c_str!(error.to_string()).unwrap();
-            copy_c_str!(msg, error_msg, error_size);
+            utils::copy_error_msg(&error.to_string(), error_msg, error_size);
             -2
         }
     }
@@ -538,14 +537,20 @@ pub enum DU_LOCKKEY {
 
 /// Enables the lock key.
 ///
+/// Does nothing when the keyboard is unavailable (e.g. Linux without an X11 display)
+/// or the OS rejects the change, since the C signature has no error result.
+///
 /// # Arguments
 ///
 /// * `[in] key` - The key to set a new state.
 /// * `[in] enabled` - The new state (enabled/disabled) for the key.
 #[no_mangle]
 pub unsafe extern "C" fn du_lockkey_set(key: DU_LOCKKEY, enabled: bool) {
+    if !os::lockkey_available() {
+        return;
+    }
     let lockkey = LockKey::new();
-    lockkey.set(key.into(), enabled.into()).unwrap();
+    let _ = lockkey.set(key.into(), enabled.into());
 }
 
 /// Retrieve the lock key state.
@@ -557,11 +562,17 @@ pub unsafe extern "C" fn du_lockkey_set(key: DU_LOCKKEY, enabled: bool) {
 /// # Returns
 ///
 /// * `true` - Enabled.
-/// * `false` - Disabled.
+/// * `false` - Disabled, keyboard unavailable or OS error.
 #[no_mangle]
 pub unsafe extern "C" fn du_lockkey_state(key: DU_LOCKKEY) -> bool {
+    if !os::lockkey_available() {
+        return false;
+    }
     let lockkey = LockKey::new();
-    lockkey.state(key.into()).unwrap().into()
+    match lockkey.state(key.into()) {
+        Ok(state) => state.into(),
+        Err(_) => false,
+    }
 }
 
 /// Calls the OS-specific function to change the system date and time.

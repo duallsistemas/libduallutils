@@ -109,3 +109,29 @@ fn deletion_reports_sharing_violation() {
     assert!(exists);
     assert_eq!(unsafe { du_deltree(name.as_ptr()) }, -2);
 }
+
+#[test]
+fn os_error_messages_are_truncated_with_nul_on_char_boundary() {
+    let mut buffer = [b'X' as c_char; 8];
+    unsafe {
+        utils::copy_error_msg("a\u{e7}\u{e7}\u{e7}", buffer.as_mut_ptr(), 5);
+        assert_eq!(from_c_str!(buffer.as_ptr()).unwrap(), "a\u{e7}");
+        assert_eq!(buffer[5], b'X' as c_char);
+        utils::copy_error_msg("abc", buffer.as_mut_ptr(), 1);
+        assert_eq!(buffer[0], 0);
+        utils::copy_error_msg("abc", buffer.as_mut_ptr(), 8);
+        assert_eq!(from_c_str!(buffer.as_ptr()).unwrap(), "abc");
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn lock_keys_without_display_do_not_crash() {
+    if std::env::var_os("DISPLAY").is_some() {
+        return;
+    }
+    unsafe {
+        du_lockkey_set(DU_LOCKKEY::DU_LK_CAPSLOCK, true);
+        assert!(!du_lockkey_state(DU_LOCKKEY::DU_LK_CAPSLOCK));
+    }
+}
