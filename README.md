@@ -29,3 +29,25 @@ cargo test --target x86_64-pc-windows-msvc regression:: -- --test-threads=1
 
 This filter excludes older tests that depend on platform executables or alter
 keyboard lock-key state.
+
+## Linux SONAME and binary packages
+
+Linux builds embed `libduallutils.so.4` as their SONAME. The binary package contains
+`libduallutils.so.4.0.3` and links `libduallutils.so.4` and `libduallutils.so`,
+preserving C linker and Pascal loader names. Windows packages contain `duallutils.dll`.
+
+Build and package x64 artifacts (Python 3.11+):
+
+```text
+cargo build --release --target x86_64-unknown-linux-gnu
+python3 scripts/package_release.py --target x86_64-unknown-linux-gnu
+```
+
+On Windows, use `x86_64-pc-windows-msvc` and set
+`RUSTFLAGS=-Ctarget-feature=+crt-static` before building. Packages in `dist/`
+include bindings, license, the resolved Cargo.lock, BUILD.json and SHA256SUMS;
+each archive has its own `.sha256`. BUILD.json records source revision, dirty
+state, toolchain and, on Linux, SONAME and minimum required glibc. Linux also
+requires the X11 runtime (`libX11.so.6`); keyboard helpers require a working X11
+session. Build machines need the X11 development package. Newer distributions
+may produce binaries requiring newer glibc on deployment machines.
