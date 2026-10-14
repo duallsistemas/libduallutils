@@ -63,6 +63,11 @@ type
     class function RunCommandLegacy(const ACommand, AParams: string;
       AWaiting: Boolean; AWindowState: Word = 0): Integer; static;
     class function OpenURLLegacy(const AURL: string): Integer; static;
+    class function LegacyText(AOp: Cardinal; const A, B: UnicodeString;
+      N: Integer = 0; C: Word = 0): UnicodeString; static;
+    class function LegacyReplace(const A, AOld, AReplacement: UnicodeString): UnicodeString; static;
+    class function LegacyFile(AOp: Cardinal; const APath: UnicodeString;
+      out AValue: Int64): Boolean; static;
     class function SHA1(const S: string): string; static;
     class function TrySHA1File(const AFileName: TFileName;
       out ASHA1: string): Boolean; static;
@@ -273,6 +278,71 @@ begin
   if not Assigned(libduallutils.du_open_url_legacy) then
     RaiseUnknownErrorInFunction('dUtils.OpenURLLegacy: missing export');
   Result := libduallutils.du_open_url_legacy(M.ToCString(AURL));
+end;
+
+procedure CheckLegacyStatus(AStatus: Integer);
+begin
+  case AStatus of
+    0: Exit;
+    -1: RaiseInvalidFunctionArgument;
+    -2: raise EConvertError.Create('Invalid integer character');
+  else
+    RaiseUnknownErrorInFunction('dUtils.LegacyText');
+  end;
+end;
+
+class function dUtils.LegacyText(AOp: Cardinal; const A, B: UnicodeString;
+  N: Integer; C: Word): UnicodeString;
+var
+  LRequired: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_text) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyText: missing export');
+  LRequired := 0;
+  CheckLegacyStatus(libduallutils.du_legacy_text(AOp, PWord(PWideChar(A)), Length(A),
+    PWord(PWideChar(B)), Length(B), N, C, nil, 0, @LRequired));
+  if LRequired > NativeUInt(MaxInt) then
+    RaiseInvalidFunctionArgument;
+  SetLength(Result, LRequired);
+  if LRequired > 0 then
+    CheckLegacyStatus(libduallutils.du_legacy_text(AOp, PWord(PWideChar(A)), Length(A),
+      PWord(PWideChar(B)), Length(B), N, C, PWord(PWideChar(Result)), Length(Result), @LRequired));
+end;
+
+class function dUtils.LegacyReplace(const A, AOld, AReplacement: UnicodeString): UnicodeString;
+var
+  LRequired: NativeUInt;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_replace) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyReplace: missing export');
+  LRequired := 0;
+  CheckLegacyStatus(libduallutils.du_legacy_replace(PWord(PWideChar(A)), Length(A),
+    PWord(PWideChar(AOld)), Length(AOld), PWord(PWideChar(AReplacement)), Length(AReplacement),
+    nil, 0, @LRequired));
+  if LRequired > NativeUInt(MaxInt) then
+    RaiseInvalidFunctionArgument;
+  SetLength(Result, LRequired);
+  if LRequired > 0 then
+    CheckLegacyStatus(libduallutils.du_legacy_replace(PWord(PWideChar(A)), Length(A),
+      PWord(PWideChar(AOld)), Length(AOld), PWord(PWideChar(AReplacement)), Length(AReplacement),
+      PWord(PWideChar(Result)), Length(Result), @LRequired));
+end;
+
+class function dUtils.LegacyFile(AOp: Cardinal; const APath: UnicodeString;
+  out AValue: Int64): Boolean;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_legacy_file) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyFile: missing export');
+  LStatus := libduallutils.du_legacy_file(AOp, PWord(PWideChar(APath)), Length(APath), @AValue);
+  if LStatus = -2 then
+    Exit(False);
+  CheckLegacyStatus(LStatus);
+  Result := True;
 end;
 
 class function dUtils.SHA1(const S: string): string;

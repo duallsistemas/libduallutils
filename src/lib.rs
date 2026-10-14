@@ -30,6 +30,8 @@ use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot
 
 mod utils;
 mod legacy;
+mod legacy_text;
+mod legacy_file;
 
 #[cfg(test)]
 mod regression;

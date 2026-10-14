@@ -96,6 +96,14 @@ var
   du_run_command_legacy: function(const command, params: Pcchar;
     waiting: cbool; window_state: Word): cint; cdecl;
   du_open_url_legacy: function(const url: Pcchar): cint; cdecl;
+  du_legacy_text: function(op: Cardinal; a: PWord; alen: NativeUInt;
+    b: PWord; blen: NativeUInt; n: Integer; c: Word; output: PWord;
+    capacity: NativeUInt; required: PNativeUInt): Integer; cdecl;
+  du_legacy_replace: function(a: PWord; alen: NativeUInt; old: PWord;
+    oldlen: NativeUInt; replacement: PWord; replacementlen: NativeUInt;
+    output: PWord; capacity: NativeUInt; required: PNativeUInt): Integer; cdecl;
+  du_legacy_file: function(op: Cardinal; path: PWord; pathlen: NativeUInt;
+    value: PInt64): Integer; cdecl;
   du_sha1: function(const cstr: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
   du_sha1_file: function(const filename: Pcchar; sha1: Pcchar;
     size: csize_t): cint; cdecl;
@@ -154,6 +162,9 @@ begin
     du_md5_file_legacy := GetProcAddress(GLibHandle, 'du_md5_file_legacy');
     du_run_command_legacy := GetProcAddress(GLibHandle, 'du_run_command_legacy');
     du_open_url_legacy := GetProcAddress(GLibHandle, 'du_open_url_legacy');
+    du_legacy_text := GetProcAddress(GLibHandle, 'du_legacy_text');
+    du_legacy_replace := GetProcAddress(GLibHandle, 'du_legacy_replace');
+    du_legacy_file := GetProcAddress(GLibHandle, 'du_legacy_file');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
     du_sha1_file := GetProcAddress(GLibHandle, 'du_sha1_file');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
@@ -201,6 +212,9 @@ begin
     du_md5_file_legacy := nil;
     du_run_command_legacy := nil;
     du_open_url_legacy := nil;
+    du_legacy_text := nil;
+    du_legacy_replace := nil;
+    du_legacy_file := nil;
     du_sha1 := nil;
     du_sha1_file := nil;
     du_spawn := nil;
