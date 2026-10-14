@@ -91,6 +91,11 @@ var
   du_md5: function(const cstr: Pcchar; md5: Pcchar; size: csize_t): cint; cdecl;
   du_md5_file: function(const filename: Pcchar; md5: Pcchar;
     size: csize_t): cint; cdecl;
+  du_md5_file_legacy: function(const filename: Pcchar; md5: Pcchar;
+    size: csize_t): cint; cdecl;
+  du_run_command_legacy: function(const command, params: Pcchar;
+    waiting: cbool; window_state: Word): cint; cdecl;
+  du_open_url_legacy: function(const url: Pcchar): cint; cdecl;
   du_sha1: function(const cstr: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
   du_sha1_file: function(const filename: Pcchar; sha1: Pcchar;
     size: csize_t): cint; cdecl;
@@ -146,6 +151,9 @@ begin
     du_dispose := GetProcAddress(GLibHandle, 'du_dispose');
     du_md5 := GetProcAddress(GLibHandle, 'du_md5');
     du_md5_file := GetProcAddress(GLibHandle, 'du_md5_file');
+    du_md5_file_legacy := GetProcAddress(GLibHandle, 'du_md5_file_legacy');
+    du_run_command_legacy := GetProcAddress(GLibHandle, 'du_run_command_legacy');
+    du_open_url_legacy := GetProcAddress(GLibHandle, 'du_open_url_legacy');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
     du_sha1_file := GetProcAddress(GLibHandle, 'du_sha1_file');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
@@ -190,6 +198,9 @@ begin
     du_dispose := nil;
     du_md5 := nil;
     du_md5_file := nil;
+    du_md5_file_legacy := nil;
+    du_run_command_legacy := nil;
+    du_open_url_legacy := nil;
     du_sha1 := nil;
     du_sha1_file := nil;
     du_spawn := nil;

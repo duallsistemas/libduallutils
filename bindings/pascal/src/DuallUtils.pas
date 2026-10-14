@@ -57,6 +57,12 @@ type
     class function TryMD5File(const AFileName: TFileName;
       out AMD5: string): Boolean; static;
     class function MD5File(const AFileName: TFileName): string; static;
+    class function TryLegacyMD5File(const AFileName: TFileName;
+      out AMD5: string): Boolean; static;
+    class function LegacyMD5File(const AFileName: TFileName): string; static;
+    class function RunCommandLegacy(const ACommand, AParams: string;
+      AWaiting: Boolean; AWindowState: Word = 0): Integer; static;
+    class function OpenURLLegacy(const AURL: string): Integer; static;
     class function SHA1(const S: string): string; static;
     class function TrySHA1File(const AFileName: TFileName;
       out ASHA1: string): Boolean; static;
@@ -217,6 +223,56 @@ class function dUtils.MD5File(const AFileName: TFileName): string;
 begin
   if not TryMD5File(AFileName, Result) then
     raise EFileNotFoundException.CreateFmt(SFileNotFound, [AFileName]);
+end;
+
+class function dUtils.TryLegacyMD5File(const AFileName: TFileName;
+  out AMD5: string): Boolean;
+var
+  M: TMarshaller;
+  A: array[0..MD5_SIZE] of cchar;
+  R: cint;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_md5_file_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.TryLegacyMD5File: missing export');
+  AMD5 := '';
+  A[0] := 0;
+  R := libduallutils.du_md5_file_legacy(M.ToCString(AFileName), @A[0], SizeOf(A));
+  case R of
+    -1: RaiseInvalidFunctionArgument;
+    -2: Exit(False);
+    -3: RaiseUnknownErrorInFunction('dUtils.TryLegacyMD5File');
+  end;
+  AMD5 := TMarshal.ToString(@A[0]);
+  Result := True;
+end;
+
+class function dUtils.LegacyMD5File(const AFileName: TFileName): string;
+begin
+  if not TryLegacyMD5File(AFileName, Result) then
+    Result := '';
+end;
+
+class function dUtils.RunCommandLegacy(const ACommand, AParams: string;
+  AWaiting: Boolean; AWindowState: Word): Integer;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_run_command_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.RunCommandLegacy: missing export');
+  Result := libduallutils.du_run_command_legacy(M.ToCString(ACommand),
+    M.ToCString(AParams), AWaiting, AWindowState);
+end;
+
+class function dUtils.OpenURLLegacy(const AURL: string): Integer;
+var
+  M: TMarshaller;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_open_url_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.OpenURLLegacy: missing export');
+  Result := libduallutils.du_open_url_legacy(M.ToCString(AURL));
 end;
 
 class function dUtils.SHA1(const S: string): string;
