@@ -54,7 +54,8 @@ On Windows, use `x86_64-pc-windows-msvc` and set
 `RUSTFLAGS=-Ctarget-feature=+crt-static` before building. Packages in `dist/`
 include bindings, license, the committed Cargo.lock, BUILD.json and SHA256SUMS;
 each archive has its own `.sha256`. BUILD.json records source revision, dirty
-state, toolchain and, on Linux, SONAME and minimum required glibc. Linux also
+state, toolchain and, on Linux, SONAME, the minimum required glibc (strong symbol versions only) and the
+optional newer glibc versions the binary uses when available (weak, with fallback). Linux also
 requires the X11 runtime (`libX11.so.6`); keyboard helpers require a working X11
 session. Build machines need the X11 development package. Newer distributions
 may produce binaries requiring newer glibc on deployment machines.
