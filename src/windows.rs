@@ -33,7 +33,7 @@ pub unsafe fn datetime_set(
     st.wMinute = minute as WORD;
     st.wSecond = second as WORD;
     if SetLocalTime(&st) == 0 {
-        if Error::last_os_error().raw_os_error().unwrap() as DWORD == ERROR_PRIVILEGE_NOT_HELD {
+        if Error::last_os_error().raw_os_error().unwrap_or(0) as DWORD == ERROR_PRIVILEGE_NOT_HELD {
             return -2;
         } else {
             return -3;
@@ -98,4 +98,8 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
     };
     CloseHandle(handle);
     ret
+}
+
+pub fn lockkey_available() -> bool {
+    true
 }
