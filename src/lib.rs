@@ -33,6 +33,7 @@ mod legacy;
 mod legacy_text;
 mod legacy_file;
 mod legacy_dates;
+mod legacy_math;
 mod legacy_base64;
 mod legacy_read;
 mod legacy_find;

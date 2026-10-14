@@ -82,6 +82,10 @@ type
     class function LegacyFileAge(const APath: UnicodeString; out ARaw: Int64): Boolean; static;
     class function LegacySetFileDate(const APath: UnicodeString; APackedDate: Int64): Integer; static;
     class function LegacyWaitWritable(const APath: UnicodeString): Boolean; static;
+    class function LegacyMath(AOp: Cardinal; A, B: Double;
+      ADec, AKind: Integer): Double; static;
+    class function LegacyStringToFloatDef(const S: UnicodeString;
+      ADefault: Double): Double; static;
     class function SHA1(const S: string): string; static;
     class function TrySHA1File(const AFileName: TFileName;
       out ASHA1: string): Boolean; static;
@@ -118,6 +122,9 @@ type
   end;
 
 implementation
+
+uses
+  Math;
 
 procedure RaiseInvalidFunctionArgument; inline;
 begin
@@ -499,6 +506,113 @@ begin
   if LStatus = -1 then RaiseInvalidFunctionArgument;
   if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyWaitWritable');
   Result := LWritable <> 0;
+end;
+
+{ Types for consumer-owned callback context. ABI declarations must use cdecl. }
+type
+  TLegacyMathError = record
+    ErrorClass: ExceptClass;
+    ErrorMessage: string;
+  end;
+  PLegacyMathError = ^TLegacyMathError;
+
+function LegacyRTLMathCallback(AOp: Cardinal; A, B: Double; N: Integer;
+  I: Int64; AValue: PDouble; AInteger: PInt64; AContext: Pointer): Integer; cdecl;
+begin
+  Result := 0;
+  try
+    AValue^ := 0;
+    AInteger^ := 0;
+    case AOp of
+      1: AValue^ := IntPower(10.0, N);
+      2: AInteger^ := Ord(Frac(Abs(A)) > 0);
+      3: AValue^ := Frac(A);
+      4: AValue^ := Int(A);
+      5: AValue^ := A + B;
+      6: AValue^ := A * B;
+      7: AValue^ := A / B;
+      8: AInteger^ := Trunc(SimpleRoundTo(Frac(A) * 100, -9));
+      9: AInteger^ := Ord(CompareValue(A, 0.0, 0.0001));
+      10: AValue^ := SimpleRoundTo(I / Max(A, 1), -9);
+      11: AInteger^ := Round(Frac(I / 10) * 10);
+      12: AInteger^ := Ord(CompareValue(Frac(A * 10), 0, 0.0001));
+      13: AInteger^ := Round(SimpleRoundTo(Frac(I / 10), -9) * 10);
+      14:
+        if A < 0 then AValue^ := Int((A / B) - 0.05) * B
+        else AValue^ := Int((A / B) + 0.05) * B;
+      15: AInteger^ := Ord(Abs(A) > 0);
+      16:
+        if N = 1 then AInteger^ := Ord(IsZero(A, 0.001))
+        else AInteger^ := Ord(IsZero(A, 0.0001));
+      17: AInteger^ := Ord(SameValue(A, B, 0.00001));
+      18: AInteger^ := Trunc(A);
+      19: AInteger^ := Ord(IsZero(I, 0.0001));
+      20: AValue^ := IntPower(10, N);
+    else
+      raise EArgumentException.Create('Unknown legacy math primitive');
+    end;
+  except
+    on E: Exception do
+    begin
+      if AContext <> nil then
+      begin
+        PLegacyMathError(AContext)^.ErrorClass := ExceptClass(E.ClassType);
+        PLegacyMathError(AContext)^.ErrorMessage := E.Message;
+      end;
+      Result := 1;
+    end;
+  end;
+end;
+
+function LegacyRTLFloatParser(AContext: Pointer; AInput: PWord;
+  ALength: NativeUInt; AValue: PDouble): Integer; cdecl;
+var
+  LText: UnicodeString;
+begin
+  Result := 0;
+  try
+    SetString(LText, PWideChar(AInput), ALength);
+    AValue^ := StrToFloat(LText);
+  except
+    on E: Exception do Result := 1;
+  end;
+end;
+
+class function dUtils.LegacyMath(AOp: Cardinal; A, B: Double;
+  ADec, AKind: Integer): Double;
+var
+  LContext: TLegacyMathError;
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_math_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyMath: missing export');
+  LContext.ErrorClass := nil;
+  LContext.ErrorMessage := '';
+  LStatus := libduallutils.du_math_legacy(AOp, A, B, ADec, AKind,
+    LegacyRTLMathCallback, @LContext, @Result);
+  if LStatus = -2 then
+  begin
+    if LContext.ErrorClass <> nil then
+      raise LContext.ErrorClass.Create(LContext.ErrorMessage);
+    RaiseUnknownErrorInFunction('dUtils.LegacyMath: missing callback error');
+  end;
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyMath');
+end;
+
+class function dUtils.LegacyStringToFloatDef(const S: UnicodeString;
+  ADefault: Double): Double;
+var
+  LStatus: Integer;
+begin
+  libduallutils.Check;
+  if not Assigned(libduallutils.du_string_to_float_def_legacy) then
+    RaiseUnknownErrorInFunction('dUtils.LegacyStringToFloatDef: missing export');
+  LStatus := libduallutils.du_string_to_float_def_legacy(PWord(PWideChar(S)), Length(S),
+    Word(FormatSettings.DecimalSeparator), ADefault, LegacyRTLFloatParser, nil, @Result);
+  if LStatus = -1 then RaiseInvalidFunctionArgument;
+  if LStatus <> 0 then RaiseUnknownErrorInFunction('dUtils.LegacyStringToFloatDef');
 end;
 
 class function dUtils.SHA1(const S: string): string;

@@ -76,6 +76,12 @@ type
   csize_t = NativeUInt;
   cenum = cint;
 
+  TLegacyMathCallback = function(op: Cardinal; a, b: Double; n: Integer;
+    input_i64: Int64; output: PDouble; integer_output: PInt64;
+    context: Pointer): Integer; cdecl;
+  TLegacyFloatParser = function(context: Pointer; input: PWord;
+    inputlen: NativeUInt; output: PDouble): Integer; cdecl;
+
   EduLibNotLoaded = class(EFileNotFoundException);
 
 type
@@ -125,6 +131,11 @@ var
     packed_date: Int64): Integer; cdecl;
   du_wait_writable_legacy: function(path: PWord; pathlen: NativeUInt;
     writable: PByte): Integer; cdecl;
+  du_math_legacy: function(op: Cardinal; a, b: Double; dec, kind: Integer;
+    callback: TLegacyMathCallback; context: Pointer; output: PDouble): Integer; cdecl;
+  du_string_to_float_def_legacy: function(input: PWord; inputlen: NativeUInt;
+    separator: Word; default_value: Double; parser: TLegacyFloatParser;
+    context: Pointer; output: PDouble): Integer; cdecl;
   du_sha1: function(const cstr: Pcchar; sha1: Pcchar; size: csize_t): cint; cdecl;
   du_sha1_file: function(const filename: Pcchar; sha1: Pcchar;
     size: csize_t): cint; cdecl;
@@ -196,6 +207,8 @@ begin
     du_file_age_legacy := GetProcAddress(GLibHandle, 'du_file_age_legacy');
     du_set_file_date_legacy := GetProcAddress(GLibHandle, 'du_set_file_date_legacy');
     du_wait_writable_legacy := GetProcAddress(GLibHandle, 'du_wait_writable_legacy');
+    du_math_legacy := GetProcAddress(GLibHandle, 'du_math_legacy');
+    du_string_to_float_def_legacy := GetProcAddress(GLibHandle, 'du_string_to_float_def_legacy');
     du_sha1 := GetProcAddress(GLibHandle, 'du_sha1');
     du_sha1_file := GetProcAddress(GLibHandle, 'du_sha1_file');
     du_spawn := GetProcAddress(GLibHandle, 'du_spawn');
@@ -256,6 +269,8 @@ begin
     du_file_age_legacy := nil;
     du_set_file_date_legacy := nil;
     du_wait_writable_legacy := nil;
+    du_math_legacy := nil;
+    du_string_to_float_def_legacy := nil;
     du_sha1 := nil;
     du_sha1_file := nil;
     du_spawn := nil;
