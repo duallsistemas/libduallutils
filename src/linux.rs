@@ -46,19 +46,15 @@ pub unsafe fn terminate(process_name: *const c_char) -> c_int {
     let name = match CStr::from_ptr(process_name).to_str() { Ok(name) => name, Err(_) => return -1 };
     let sys = System::new_all();
     for proc in sys.get_process_by_name(name) {
-        match sys.get_process(proc.pid()) {
-            Some(p) => {
-                if p.kill(Signal::Term) {
-                    return 0;
-                }
-                if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
-                    return -3;
-                } else {
-                    return -4;
-                }
+        if let Some(p) = sys.get_process(proc.pid()) {
+            if p.kill(Signal::Term) {
+                return 0;
             }
-            None => break,
-        };
+            if Error::last_os_error().kind() == ErrorKind::PermissionDenied {
+                return -3;
+            }
+            return -4;
+        }
     }
     -2
 }

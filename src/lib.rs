@@ -78,7 +78,7 @@ pub unsafe extern "C" fn du_dispose(cstr: *mut c_char) {
 /// * `-1` - Invalid argument.
 #[no_mangle]
 pub unsafe extern "C" fn du_md5(cstr: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
-    if cstr.is_null() || md5.is_null() || size <= 0 {
+    if cstr.is_null() || md5.is_null() || size == 0 {
         return -1;
     }
     let mut hasher = Md5::new();
@@ -108,7 +108,7 @@ pub unsafe extern "C" fn du_md5_file(
     md5: *mut c_char,
     size: size_t,
 ) -> c_int {
-    if filename.is_null() || md5.is_null() || size <= 0 {
+    if filename.is_null() || md5.is_null() || size == 0 {
         return -1;
     }
     match File::open(checked_str!(filename)) {
@@ -199,7 +199,7 @@ pub unsafe extern "C" fn du_open_url_legacy(url: *const c_char) -> c_int {
 /// * `-1` - Invalid argument.
 #[no_mangle]
 pub unsafe extern "C" fn du_sha1(cstr: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
-    if cstr.is_null() || sha1.is_null() || size <= 0 {
+    if cstr.is_null() || sha1.is_null() || size == 0 {
         return -1;
     }
     let mut hasher = Sha1::new();
@@ -229,7 +229,7 @@ pub unsafe extern "C" fn du_sha1_file(
     sha1: *mut c_char,
     size: size_t,
 ) -> c_int {
-    if filename.is_null() || sha1.is_null() || size <= 0 {
+    if filename.is_null() || sha1.is_null() || size == 0 {
         return -1;
     }
     match File::open(checked_str!(filename)) {
@@ -306,7 +306,7 @@ pub unsafe extern "C" fn du_spawn(
     if !envs.is_null() {
         for i in 0.. {
             let env = *(envs.offset(i));
-            if env == ptr::null() {
+            if env.is_null() {
                 break;
             }
             let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
@@ -381,7 +381,7 @@ pub unsafe extern "C" fn du_execute(
     if !envs.is_null() {
         for i in 0.. {
             let env = *(envs.offset(i));
-            if env == ptr::null() {
+            if env.is_null() {
                 break;
             }
             let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
@@ -502,7 +502,7 @@ pub unsafe extern "C" fn du_shutdown(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_shutdown() } else { shutdown() };
@@ -534,7 +534,7 @@ pub unsafe extern "C" fn du_reboot(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_reboot() } else { reboot() };
@@ -566,7 +566,7 @@ pub unsafe extern "C" fn du_logout(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_logout() } else { logout() };
