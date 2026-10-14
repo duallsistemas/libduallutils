@@ -52,7 +52,10 @@ def main():
         if not needs:
             raise SystemExit('No GLIBC version requirements found in readelf output')
         key = lambda value: tuple(map(int, value.split('.')))
-        minimum = max((v for v, flags in needs if 'WEAK' not in flags.split('|')), key=key)
+        strong = [v for v, flags in needs if 'WEAK' not in flags.split('|')]
+        if not strong:
+            raise SystemExit('No strong GLIBC version requirements found in readelf output')
+        minimum = max(strong, key=key)
         optional = [v for v, flags in needs if 'WEAK' in flags.split('|') and key(v) > key(minimum)]
         metadata['minimum_glibc'] = minimum
         metadata['optional_glibc'] = max(optional, key=key) if optional else None
