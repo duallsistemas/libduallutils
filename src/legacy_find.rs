@@ -210,9 +210,6 @@ mod platform {
     use super::Record;
     use std::ffi::{CStr, CString};
 
-    // glibc FNM_CASEFOLD (extensao GNU): FindFirst do Delphi e case-insensitive.
-    const FNM_CASEFOLD: libc::c_int = 1 << 4;
-
     pub struct Search {
         handle: *mut libc::DIR,
         directory: String,
@@ -256,7 +253,8 @@ mod platform {
                         };
                     }
                     let raw = CStr::from_ptr((*entry).d_name.as_ptr());
-                    if libc::fnmatch(self.pattern.as_ptr(), raw.as_ptr(), FNM_CASEFOLD) != 0 {
+                    // Delphi's Linux RTL uses flags 0: filename masks are case-sensitive.
+                    if libc::fnmatch(self.pattern.as_ptr(), raw.as_ptr(), 0) != 0 {
                         continue;
                     }
                     let name = String::from_utf8_lossy(raw.to_bytes());
@@ -416,6 +414,38 @@ mod tests {
             assert!(owner.is_null());
         }
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_masks_preserve_rtl_case_sensitive_matching() {
+        let root = std::env::temp_dir().join(format!(
+            "du-find-case-{}-{}",
+            std::process::id(),
+            SERIAL.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&root).unwrap();
+        for name in ["report.txt", "REPORT.TXT"] {
+            fs::write(root.join(name), b"fixture").unwrap();
+        }
+        let directory = format!("{}/", root.display());
+        let dir: Vec<u16> = directory.encode_utf16().collect();
+        let mut results = Vec::new();
+        for pattern in ["*.txt", "*.TXT", "*.TxT"] {
+            let mask: Vec<u16> = format!("{}{}", directory, pattern).encode_utf16().collect();
+            let pattern: Vec<u16> = pattern.encode_utf16().collect();
+            let mut search = platform::Search::open(&mask, &dir, &pattern, 0).unwrap();
+            let mut names = Vec::new();
+            while let Some(record) = search.next().unwrap() {
+                names.push(String::from_utf16(&record.name).unwrap());
+            }
+            names.sort();
+            results.push(names);
+        }
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(results[0], vec!["report.txt"]);
+        assert_eq!(results[1], vec!["REPORT.TXT"]);
+        assert!(results[2].is_empty());
     }
 
     #[cfg(target_os = "linux")]
