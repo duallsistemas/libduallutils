@@ -341,6 +341,8 @@ fn apply(op: u32, a: &[u16], b: &[u16], n: i32, c: u16) -> Result<Vec<u16>, i32>
             }
             bytes
         }
+        40 => return crate::legacy_base64::encode(a, n, b),
+        41 => crate::legacy_base64::decode(a),
         _ => return Err(-1),
     })
 }

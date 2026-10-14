@@ -61,3 +61,11 @@ Classification provenance and reproduction: `tools/README.md`.
 | 39 | SimpleDecrypt hex; Word(n) key; invalid/odd input empty; output byte units |
 
 Encoding remains in the Delphi facade using its TEncoding.UTF8 contract.
+
+| 40 | Base64 encode byte units; n line width, b separator; breaks only after full 3-byte blocks |
+| 41 | Base64 decode low byte of each unit; nonalphabet/padding ignored; output byte units |
+
+The Base64 implementation was independently derived from the installed Delphi
+13 RTL behavior in System.NetEncoding.pas. Exactly 57 input bytes with width76
+and CRLF produces a trailing CRLF; padding a partial block does not trigger
+another break. Decode does not reset its bit accumulator at '='.
