@@ -86,8 +86,10 @@ def main():
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zip:
             for filename, data in files.items():
                 zip.writestr(filename, data)
+    # newline='\n': no Windows o modo texto gravaria CRLF, e o sha256sum -c do
+    # Ubuntu 22.04 (coreutils 8.32) le o \r como parte do nome do arquivo.
     archive.with_name(archive.name + '.sha256').write_text(
-        f'{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n', encoding='ascii')
+        f'{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n', encoding='ascii', newline='\n')
     print(archive)
     print(json.dumps(metadata))
 
