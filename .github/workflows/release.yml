@@ -84,6 +84,15 @@ jobs:
         shell: bash
         run: python scripts/package_release.py --target "${{ matrix.target }}"
 
+      - name: .sha256 com fim de linha LF
+        shell: bash
+        run: |
+          # O publish confere os pacotes com sha256sum -c no Ubuntu 22.04, que não aceita CRLF.
+          if grep -l $'\r' dist/*.sha256; then
+            echo 'Arquivo .sha256 com CRLF.' >&2
+            exit 1
+          fi
+
       - name: glibc mínima dentro do limite dos servidores
         if: runner.os == 'Linux'
         shell: bash
