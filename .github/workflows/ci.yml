@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "codex/**"]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  rust:
+    name: rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build (debug + release)
+        run: |
+          cargo build --all-targets
+          cargo build --release
+
+      - name: Test
+        run: cargo test --all-targets -- --nocapture
+
+      # Reportado, não bloqueante, até a suíte ficar verde de forma consistente.
+      # Depois de estabilizar, troque por `-- -D warnings`.
+      - name: Clippy
+        run: cargo clippy --all-targets
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+  ci-wiring:
+    name: ci wiring self-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm the char-class table is reproducible
+        run: |
+          # Tabela binaria versionada; o SHA esta documentado em tools/README.md.
+          # Falha se o arquivo commitado divergir do hash documentado.
+          actual=$(sha256sum src/delphi_char_classes.bin | cut -d' ' -f1)
+          expected=066f2c222d4cae2a735323f21ba89bd1ec75de8b0598a798518ee82ec3f2e9f7
+          echo "actual:   $actual"
+          echo "expected: $expected"
+          [ "$actual" = "$expected" ] || (echo "delphi_char_classes.bin divergiu do SHA documentado" && exit 1)
+          echo "char class table OK"
