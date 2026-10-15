@@ -29,6 +29,14 @@ use std::ptr;
 use system_shutdown::{force_logout, force_reboot, force_shutdown, logout, reboot, shutdown};
 
 mod utils;
+mod legacy;
+mod legacy_text;
+mod legacy_file;
+mod legacy_dates;
+mod legacy_math;
+mod legacy_base64;
+mod legacy_read;
+mod legacy_find;
 
 #[cfg(test)]
 mod regression;
@@ -70,7 +78,7 @@ pub unsafe extern "C" fn du_dispose(cstr: *mut c_char) {
 /// * `-1` - Invalid argument.
 #[no_mangle]
 pub unsafe extern "C" fn du_md5(cstr: *const c_char, md5: *mut c_char, size: size_t) -> c_int {
-    if cstr.is_null() || md5.is_null() || size <= 0 {
+    if cstr.is_null() || md5.is_null() || size == 0 {
         return -1;
     }
     let mut hasher = Md5::new();
@@ -100,7 +108,7 @@ pub unsafe extern "C" fn du_md5_file(
     md5: *mut c_char,
     size: size_t,
 ) -> c_int {
-    if filename.is_null() || md5.is_null() || size <= 0 {
+    if filename.is_null() || md5.is_null() || size == 0 {
         return -1;
     }
     match File::open(checked_str!(filename)) {
@@ -131,6 +139,52 @@ pub unsafe extern "C" fn du_md5_file(
     0
 }
 
+/// Legacy dUtils file MD5. UTF-8 filename; buffer includes NUL space.
+/// Returns 0 success, -1 invalid input/buffer, -2 missing, -3 I/O error.
+#[no_mangle]
+pub unsafe extern "C" fn du_md5_file_legacy(filename: *const c_char, hash: *mut c_char, size: size_t) -> c_int {
+    if filename.is_null() || hash.is_null() || size == 0 { return -1; }
+    *hash = 0;
+    if size < 33 { return -1; }
+    let filename = checked_str!(filename);
+    match legacy::md5_file(filename) {
+        Ok(value) => {
+            ptr::copy_nonoverlapping(value.as_ptr(), hash as *mut u8, value.len());
+            *hash.add(value.len()) = 0;
+            0
+        },
+        Err(code) => code,
+    }
+}
+
+/// Raw legacy command line: callers own argument quoting. Window state is SW_*.
+/// Returns 0 accepted/completed, -1 invalid UTF-8/input, -2 missing, -3 OS error.
+/// A nonzero child exit status is still successful execution (legacy behavior).
+#[no_mangle]
+pub unsafe extern "C" fn du_run_command_legacy(command: *const c_char, params: *const c_char, waiting: bool, window_state: u16) -> c_int {
+    if command.is_null() || params.is_null() { return -1; }
+    legacy::run_command(checked_str!(command), checked_str!(params), waiting, window_state)
+}
+
+/// Legacy URL opening: ShellExecuteW/SW_HIDE or BROWSER (konqueror fallback).
+/// Returns the same status codes as du_run_command_legacy.
+#[no_mangle]
+pub unsafe extern "C" fn du_open_url_legacy(url: *const c_char) -> c_int {
+    if url.is_null() { return -1; }
+    let url = checked_str!(url);
+    #[cfg(windows)]
+    { legacy::run_command(url, "", false, 0) }
+    #[cfg(target_os = "linux")]
+    {
+        let browser = match std::env::var("BROWSER") {
+            Ok(value) if !value.is_empty() => value,
+            Ok(_) | Err(std::env::VarError::NotPresent) => "konqueror".to_owned(),
+            Err(_) => return -1,
+        };
+        legacy::run_command(&browser, url, false, 0)
+    }
+}
+
 /// Generates a SHA-1 from a given string.
 ///
 /// # Arguments
@@ -145,7 +199,7 @@ pub unsafe extern "C" fn du_md5_file(
 /// * `-1` - Invalid argument.
 #[no_mangle]
 pub unsafe extern "C" fn du_sha1(cstr: *const c_char, sha1: *mut c_char, size: size_t) -> c_int {
-    if cstr.is_null() || sha1.is_null() || size <= 0 {
+    if cstr.is_null() || sha1.is_null() || size == 0 {
         return -1;
     }
     let mut hasher = Sha1::new();
@@ -175,7 +229,7 @@ pub unsafe extern "C" fn du_sha1_file(
     sha1: *mut c_char,
     size: size_t,
 ) -> c_int {
-    if filename.is_null() || sha1.is_null() || size <= 0 {
+    if filename.is_null() || sha1.is_null() || size == 0 {
         return -1;
     }
     match File::open(checked_str!(filename)) {
@@ -252,7 +306,7 @@ pub unsafe extern "C" fn du_spawn(
     if !envs.is_null() {
         for i in 0.. {
             let env = *(envs.offset(i));
-            if env == ptr::null() {
+            if env.is_null() {
                 break;
             }
             let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
@@ -327,7 +381,7 @@ pub unsafe extern "C" fn du_execute(
     if !envs.is_null() {
         for i in 0.. {
             let env = *(envs.offset(i));
-            if env == ptr::null() {
+            if env.is_null() {
                 break;
             }
             let pair: Vec<&str> = checked_str!(env).splitn(2, "=").collect();
@@ -448,7 +502,7 @@ pub unsafe extern "C" fn du_shutdown(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_shutdown() } else { shutdown() };
@@ -480,7 +534,7 @@ pub unsafe extern "C" fn du_reboot(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_reboot() } else { reboot() };
@@ -512,7 +566,7 @@ pub unsafe extern "C" fn du_logout(
     error_msg: *mut c_char,
     error_size: size_t,
 ) -> c_int {
-    if error_msg.is_null() || error_size <= 0 {
+    if error_msg.is_null() || error_size == 0 {
         return -1;
     }
     let result = if forced { force_logout() } else { logout() };

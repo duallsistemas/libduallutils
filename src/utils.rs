@@ -29,7 +29,7 @@ macro_rules! from_c_array {
         let mut array = Vec::new();
         for i in 0.. {
             let arg = *($array.offset(i));
-            if arg == ptr::null() {
+            if arg.is_null() {
                 break;
             }
             array.push(checked_str!(arg));
