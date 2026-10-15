@@ -1,0 +1,159 @@
+name: Release
+
+# Pacotes x64 da libduallutils gerados em runners hospedados do GitHub, pelo
+# scripts/package_release.py (binário, bindings Pascal, BUILD.json, SHA256SUMS e
+# um .sha256 por pacote):
+# - Windows: MSVC com CRT estático, sem depender do VC++ Redistributable.
+# - Linux: Ubuntu 22.04, para a .so exigir no máximo glibc 2.35 e carregar nos
+#   servidores 22.04 por construção. O passo de glibc reprova o pacote se uma
+#   dependência nova elevar a exigência forte acima disso (versões WEAK, como o
+#   pidfd_spawnp do std, têm fallback e não contam).
+# Em pull request o workflow só testa, compila e empacota (artefatos do run).
+# A release sai apenas no push de uma tag v<versão do Cargo.toml>, como
+# pre-release: os consumidores conferem os SHA-256 antes de promovê-la.
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Mesma toolchain da 4.0.3-rc.1 (BUILD.json); trocar de propósito, nunca implícito.
+  RUST_TOOLCHAIN: '1.99.0'
+  MAX_GLIBC: '2.35'
+  CARGO_TERM_COLOR: never
+
+jobs:
+  package:
+    name: Pacote ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            rustflags: -Ctarget-feature=+crt-static
+            # tests::execute e tests::spawn chamam echo, que no Windows é builtin do
+            # cmd (não há echo.exe). Os de lock key e o open alteram o estado da
+            # sessão; regression::lock_keys_without_display_do_not_crash continua.
+            skip: tests::lockkey_set tests::lockkey_state tests::open tests::execute tests::spawn
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rustflags: ''
+            skip: tests::lockkey_set tests::lockkey_state tests::open
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # package_release.py usa tomllib (Python 3.11+).
+          python-version: '3.12'
+
+      - name: Toolchain Rust fixa
+        shell: bash
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target "${{ matrix.target }}" --no-self-update
+          rustup default "$RUST_TOOLCHAIN"
+          rustc --version
+
+      - name: Pacote de desenvolvimento do X11
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev
+
+      - name: Testes
+        shell: bash
+        run: |
+          skip=()
+          for name in ${{ matrix.skip }}; do skip+=(--skip "$name"); done
+          # --exact vale também para --skip: só os nomes completos acima ficam de fora.
+          cargo test --release --locked --target "${{ matrix.target }}" -- --exact "${skip[@]}" --test-threads=1
+
+      - name: Build
+        shell: bash
+        run: cargo build --release --locked --target "${{ matrix.target }}"
+
+      - name: Empacotar
+        shell: bash
+        run: python scripts/package_release.py --target "${{ matrix.target }}"
+
+      - name: glibc mínima dentro do limite dos servidores
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, json, os, sys, tarfile
+          (archive,) = glob.glob('dist/*.tar.gz')
+          with tarfile.open(archive) as tar:
+              build = json.load(tar.extractfile('BUILD.json'))
+          found, limit = build['minimum_glibc'], os.environ['MAX_GLIBC']
+          key = lambda value: tuple(map(int, value.split('.')))
+          print(f'{archive}: glibc mínima {found}, limite {limit}')
+          if key(found) > key(limit):
+              sys.exit(f'A .so exige glibc {found}; os servidores têm {limit}.')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.target }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publicar pre-release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: package-*
+          merge-multiple: true
+
+      - name: Tag igual à versão do Cargo.toml
+        shell: bash
+        run: |
+          version="$(python3 -c 'import re; print(re.search(r"^version = \"([^\"]+)\"", open("Cargo.toml", encoding="utf-8").read(), re.M).group(1))')"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME não corresponde à versão $version do Cargo.toml." >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Conferir os SHA-256 e publicar
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum -c ./*.sha256
+          {
+            echo "Pacotes x64 gerados pelo workflow Release a partir de \`${GITHUB_SHA}\` (Rust ${RUST_TOOLCHAIN})."
+            echo
+            echo "Linux construído no Ubuntu 22.04 (glibc mínima até ${MAX_GLIBC}). Windows MSVC com CRT estático."
+            echo
+            echo '```'
+            cat ./*.sha256
+            echo '```'
+          } > ../release-notes.md
+          gh release create "$GITHUB_REF_NAME" ./*.zip ./*.tar.gz ./*.sha256 \
+            --prerelease --verify-tag \
+            --title "libduallutils ${VERSION} — Windows/Linux x64" \
+            --notes-file ../release-notes.md
